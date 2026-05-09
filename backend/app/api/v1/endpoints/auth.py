@@ -17,14 +17,14 @@ USERS_DB = {
         "email": "admin@mgi.org",
         "full_name": "MGI Admin",
         "role": "admin",
-        "hashed_password": "PASTE_ADMIN_HASH_HERE",
+        "hashed_password": "$2b$12$mlee3hAN886.8Nv5sl6lvefR9G3T.N8WLNPdjGDC2KUobt6MQ25Gi",  # Replace with actual hashed password
     },
     "user@mgi.org": {
         "username": "user@mgi.org",
         "email": "user@mgi.org",
         "full_name": "MGI Employee",
         "role": "user",
-        "hashed_password": "PASTE_USER_HASH_HERE",
+        "hashed_password": "$2b$12$yLxr4j7RjAp8iNj7Q91hMeZX9wcPsmv6ENNX3jyQkvYbxfYfGAxVK",  # Replace with actual hashed password
     }
 }
 
