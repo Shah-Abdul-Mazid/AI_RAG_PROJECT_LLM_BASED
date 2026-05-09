@@ -1,8 +1,9 @@
 import re
-from datetime import datetime
 from typing import Optional
 
 import requests
+
+from app.core.config import settings
 
 
 WEATHER_KEYWORDS = {
@@ -52,18 +53,16 @@ class LiveDataAgent:
                 ],
             }
 
-        coordinates = self._geocode_location(location)
-        weather = self._fetch_current_weather(coordinates["latitude"], coordinates["longitude"])
-
-        answer = self._format_weather_answer(location, coordinates, weather)
+        weather_payload = self._fetch_current_weather(location)
+        answer = self._format_weather_answer(location, weather_payload)
 
         return {
             "answer": answer,
-            "sources": ["Open-Meteo Geocoding API", "Open-Meteo Forecast API"],
+            "sources": ["WeatherAPI Current Weather API"],
             "agent_logs": [
                 "Supervisor: Routed request to Live Data Agent",
-                f"Live Data Agent: Detected weather intent for {coordinates['name']}",
-                "Weather Connector: Retrieved current conditions from Open-Meteo",
+                f"Live Data Agent: Detected weather intent for {weather_payload['location']['name']}",
+                "Weather Connector: Retrieved current conditions from WeatherAPI",
                 "Compliance Agent: Security & PII check complete",
             ],
         }
@@ -115,90 +114,41 @@ class LiveDataAgent:
         normalized_location = re.sub(r"\s+", " ", location).strip().lower()
         return LOCATION_ALIASES.get(normalized_location, location)
 
-    def _geocode_location(self, location: str):
+    def _fetch_current_weather(self, location: str):
+        if not settings.WEATHER_API_KEY:
+            raise ValueError("WEATHER_API_KEY is missing. Add it to backend/.env to enable live weather.")
+
         response = requests.get(
-            "https://geocoding-api.open-meteo.com/v1/search",
-            params={"name": location, "count": 1, "language": "en", "format": "json"},
-            timeout=10,
-        )
-        response.raise_for_status()
-        results = response.json().get("results", [])
-
-        if not results:
-            raise ValueError(f"Could not find weather coordinates for '{location}'.")
-
-        result = results[0]
-        return {
-            "name": result.get("name", location),
-            "country": result.get("country", ""),
-            "latitude": result["latitude"],
-            "longitude": result["longitude"],
-            "timezone": result.get("timezone", "auto"),
-        }
-
-    def _fetch_current_weather(self, latitude: float, longitude: float):
-        response = requests.get(
-            "https://api.open-meteo.com/v1/forecast",
+            "https://api.weatherapi.com/v1/current.json",
             params={
-                "latitude": latitude,
-                "longitude": longitude,
-                "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m",
-                "timezone": "auto",
+                "key": settings.WEATHER_API_KEY,
+                "q": location,
+                "aqi": "no",
             },
             timeout=10,
         )
         response.raise_for_status()
-        return response.json()["current"]
+        return response.json()
 
-    def _format_weather_answer(self, requested_location: str, coordinates: dict, weather: dict) -> str:
-        observed_at = self._format_observed_time(weather.get("time"))
-        condition = self._weather_code_to_text(weather.get("weather_code"))
-        place = f"{coordinates['name']}, {coordinates['country']}".strip(", ")
+    def _format_weather_answer(self, requested_location: str, weather_payload: dict) -> str:
+        location = weather_payload["location"]
+        current = weather_payload["current"]
+        condition = current.get("condition", {}).get("text", "current conditions available")
+        place = ", ".join(
+            part for part in [location.get("name"), location.get("region"), location.get("country")] if part
+        )
+        observed_at = current.get("last_updated") or location.get("localtime") or "the latest available update"
 
         return (
             f"Current weather for {place}: {condition}. "
-            f"Temperature is {weather.get('temperature_2m')}°C, feels like "
-            f"{weather.get('apparent_temperature')}°C, humidity is "
-            f"{weather.get('relative_humidity_2m')}%, wind speed is "
-            f"{weather.get('wind_speed_10m')} km/h, and precipitation is "
-            f"{weather.get('precipitation')} mm. "
+            f"Temperature is {current.get('temp_c')} C, feels like "
+            f"{current.get('feelslike_c')} C, humidity is "
+            f"{current.get('humidity')}%, wind speed is "
+            f"{current.get('wind_kph')} km/h, and precipitation is "
+            f"{current.get('precip_mm')} mm. "
             f"Observed at {observed_at}. "
             f"I interpreted your requested location as '{requested_location}'."
         )
-
-    def _format_observed_time(self, value: Optional[str]) -> str:
-        if not value:
-            return "the latest available update"
-        try:
-            return datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M")
-        except ValueError:
-            return value
-
-    def _weather_code_to_text(self, code: Optional[int]) -> str:
-        weather_codes = {
-            0: "clear sky",
-            1: "mainly clear",
-            2: "partly cloudy",
-            3: "overcast",
-            45: "fog",
-            48: "depositing rime fog",
-            51: "light drizzle",
-            53: "moderate drizzle",
-            55: "dense drizzle",
-            61: "slight rain",
-            63: "moderate rain",
-            65: "heavy rain",
-            71: "slight snow",
-            73: "moderate snow",
-            75: "heavy snow",
-            80: "slight rain showers",
-            81: "moderate rain showers",
-            82: "violent rain showers",
-            95: "thunderstorm",
-            96: "thunderstorm with slight hail",
-            99: "thunderstorm with heavy hail",
-        }
-        return weather_codes.get(code, "current conditions available")
 
 
 live_data_agent = LiveDataAgent()

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
     GROK_API_KEY: str = os.getenv("GROK_API_KEY", "")
+    WEATHER_API_KEY: str = os.getenv("WEATHER_API_KEY", "")
     
     PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
     PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "enterprise-rag")
