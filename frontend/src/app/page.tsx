@@ -44,7 +44,62 @@ export default function Dashboard() {
   const [scrapeUrl, setScrapeUrl] = useState('');
   const [isScraping, setIsScraping] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'docs' | 'analytics'>('chat');
+  
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userFullName, setUserFullName] = useState<string | null>(null);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    const fullName = localStorage.getItem("fullName");
+    if (token) {
+      setIsAuthenticated(true);
+      setUserRole(role);
+      setUserFullName(fullName);
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      // Create x-www-form-urlencoded data for OAuth2
+      const params = new URLSearchParams();
+      params.append('username', loginEmail);
+      params.append('password', loginPassword);
+
+      const response = await axios.post(`${API_BASE}/api/v1/auth/login`, params);
+      const data = response.data;
+      
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("fullName", data.full_name);
+      
+      setIsAuthenticated(true);
+      setUserRole(data.role);
+      setUserFullName(data.full_name);
+    } catch (error) {
+      setLoginError("Invalid credentials. Try admin@mgi.org or user@mgi.org");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("fullName");
+    setIsAuthenticated(false);
+    setUserRole(null);
+    setUserFullName(null);
+    setMessages([{ role: 'assistant', content: 'Welcome back. Please login.' }]);
+  };
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -119,10 +174,65 @@ export default function Dashboard() {
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen bg-[#0a0a0a] items-center justify-center text-white font-sans p-4">
+        <div className="glass p-8 md:p-10 rounded-3xl w-full max-w-[400px] border border-white/10 shadow-2xl">
+          <div className="flex items-center gap-3 mb-8 justify-center">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+              <Activity size={24} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold gradient-text">Nexus Intelligence</h1>
+          </div>
+          
+          <h2 className="text-xl font-semibold text-center mb-6">Enterprise Login</h2>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Email / Username</label>
+              <input 
+                type="text" 
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors"
+                placeholder="admin@mgi.org"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Password</label>
+              <input 
+                type="password" 
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors"
+                placeholder="••••••••"
+              />
+            </div>
+            
+            {loginError && <p className="text-red-400 text-xs text-center">{loginError}</p>}
+            
+            <button 
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-semibold transition-all mt-4"
+            >
+              Sign In
+            </button>
+          </form>
+          
+          <div className="mt-6 pt-6 border-t border-white/10 text-xs text-gray-500 text-center">
+            <p>Demo Accounts:</p>
+            <p>Admin: admin@mgi.org / admin123</p>
+            <p>User: user@mgi.org / user123</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-64 border-r border-white/10 flex flex-col glass">
+    <div className="flex flex-col md:flex-row h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
+      {/* Sidebar - Hidden on mobile, flex on md and up */}
+      <div className="hidden md:flex w-64 border-r border-white/10 flex-col glass shrink-0">
         <div className="p-6">
           <div className="flex items-center gap-2 mb-8">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -139,17 +249,27 @@ export default function Dashboard() {
               onClick={() => setActiveTab('chat')} 
             />
             <NavItem 
-              icon={<Database size={18} />} 
-              label="Knowledge Base" 
-              active={activeTab === 'docs'} 
-              onClick={() => setActiveTab('docs')} 
+              icon={<MessageSquare size={18} />} 
+              label="AI Assistant" 
+              active={activeTab === 'chat'} 
+              onClick={() => setActiveTab('chat')} 
             />
-            <NavItem 
-              icon={<ShieldCheck size={18} />} 
-              label="Compliance" 
-              active={activeTab === 'analytics'} 
-              onClick={() => setActiveTab('analytics')} 
-            />
+            {userRole === 'admin' && (
+              <>
+                <NavItem 
+                  icon={<Database size={18} />} 
+                  label="Knowledge Base" 
+                  active={activeTab === 'docs'} 
+                  onClick={() => setActiveTab('docs')} 
+                />
+                <NavItem 
+                  icon={<ShieldCheck size={18} />} 
+                  label="Compliance" 
+                  active={activeTab === 'analytics'} 
+                  onClick={() => setActiveTab('analytics')} 
+                />
+              </>
+            )}
           </nav>
         </div>
 
@@ -162,26 +282,27 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative overflow-hidden">
+      <main className="flex-1 flex flex-col relative overflow-hidden w-full">
         {/* Header */}
-        <header className="h-16 border-b border-white/10 flex items-center justify-between px-8 glass">
-          <div className="flex items-center gap-4 text-sm text-gray-400">
-            <span>Systems Status: </span>
+        <header className="h-16 border-b border-white/10 flex items-center justify-between px-4 md:px-8 glass shrink-0">
+          <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
+            <span className="hidden sm:inline">Systems Status: </span>
             <span className="flex items-center gap-1.5 text-green-400">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-              Operational
+              <span className="hidden sm:inline">Operational</span>
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-white/5 rounded-full transition-colors">
-              <Globe size={20} className="text-gray-400" />
+          <div className="flex items-center gap-2 md:gap-4">
+            <span className="text-xs md:text-sm font-medium truncate max-w-[120px] md:max-w-none">{userFullName} <span className="text-gray-500 text-[10px] md:text-xs uppercase ml-1">({userRole})</span></span>
+            <button onClick={handleLogout} className="text-[10px] md:text-xs text-red-400 hover:text-red-300 transition-colors">
+              Logout
             </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 border border-white/20"></div>
+            <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 border border-white/20 shrink-0"></div>
           </div>
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative">
           {activeTab === 'chat' && (
             <div className="max-w-4xl mx-auto flex flex-col h-full">
               <div className="flex-1 space-y-6 mb-8">
@@ -192,7 +313,7 @@ export default function Dashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`max-w-[80%] rounded-2xl p-4 ${
+                    <div className={`max-w-[90%] md:max-w-[80%] rounded-2xl p-3 md:p-4 ${
                       msg.role === 'user' 
                       ? 'bg-blue-600 text-white rounded-tr-none' 
                       : 'bg-white/5 border border-white/10 text-gray-200 rounded-tl-none'
@@ -275,20 +396,20 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'docs' && (
-            <div className="max-w-5xl mx-auto">
-              <div className="flex items-center justify-between mb-8">
+            <div className="max-w-5xl mx-auto pb-20 md:pb-0">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                  <h2 className="text-2xl font-bold">Knowledge Base</h2>
-                  <p className="text-gray-400 text-sm mt-1">Manage documents and websites ingested into the RAG system.</p>
+                  <h2 className="text-xl md:text-2xl font-bold">Knowledge Base</h2>
+                  <p className="text-gray-400 text-xs md:text-sm mt-1">Manage documents and websites ingested into the RAG system.</p>
                 </div>
-                <div className="flex flex-col items-end gap-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col md:items-end gap-3 w-full md:w-auto">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                     <input 
                       type="text" 
                       value={scrapeUrl}
                       onChange={(e) => setScrapeUrl(e.target.value)}
                       placeholder="https://example.com"
-                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-gray-200 outline-none w-64"
+                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-gray-200 outline-none w-full md:w-64"
                     />
                     <button 
                       onClick={handleUrlScrape}
@@ -325,9 +446,9 @@ export default function Dashboard() {
                 />
               </div>
 
-              <div className="mt-12 glass rounded-2xl border border-white/10 overflow-hidden">
-                <table className="w-full text-left">
-                  <thead className="bg-white/5 text-gray-400 text-xs uppercase tracking-wider">
+              <div className="mt-8 md:mt-12 glass rounded-2xl border border-white/10 overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
+                  <thead className="bg-white/5 text-gray-400 text-[10px] md:text-xs uppercase tracking-wider">
                     <tr>
                       <th className="px-6 py-4 font-semibold">Document Name</th>
                       <th className="px-6 py-4 font-semibold">Type</th>
@@ -366,6 +487,26 @@ export default function Dashboard() {
                 </table>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden glass border-t border-white/10 flex justify-around items-center p-3 shrink-0">
+          <button onClick={() => setActiveTab('chat')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'chat' ? 'text-blue-400' : 'text-gray-500'}`}>
+            <MessageSquare size={20} />
+            <span className="text-[10px] font-medium">Chat</span>
+          </button>
+          {userRole === 'admin' && (
+            <>
+              <button onClick={() => setActiveTab('docs')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'docs' ? 'text-blue-400' : 'text-gray-500'}`}>
+                <Database size={20} />
+                <span className="text-[10px] font-medium">Docs</span>
+              </button>
+              <button onClick={() => setActiveTab('analytics')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'analytics' ? 'text-blue-400' : 'text-gray-500'}`}>
+                <ShieldCheck size={20} />
+                <span className="text-[10px] font-medium">Compliance</span>
+              </button>
+            </>
           )}
         </div>
       </main>
