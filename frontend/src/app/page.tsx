@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import { 
   Send, 
   Upload, 
   FileText, 
-  Search, 
   Activity, 
   ShieldCheck, 
   Database, 
   Globe,
-  Plus,
   Trash2,
   ChevronRight,
   Loader2,
@@ -19,12 +17,19 @@ import {
   ThumbsDown
 } from 'lucide-react';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
-// Dynamically set API_BASE based on where the frontend is running
-const API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-  ? `http://${window.location.hostname}:8000` 
-  : "http://localhost:8000";
+const getApiBase = () => {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1'
+  ) {
+    return `http://${window.location.hostname}:8000`;
+  }
+
+  return "http://localhost:8000";
+};
 
 interface Message {
   role: 'user' | 'assistant';
@@ -32,6 +37,66 @@ interface Message {
   sources?: string[];
   logs?: string[];
 }
+
+interface AuthSnapshot {
+  authHydrated: boolean;
+  isAuthenticated: boolean;
+  userRole: string | null;
+  userFullName: string | null;
+}
+
+const serverAuthSnapshot: AuthSnapshot = {
+  authHydrated: false,
+  isAuthenticated: false,
+  userRole: null,
+  userFullName: null,
+};
+
+let cachedAuthSnapshot = serverAuthSnapshot;
+
+const getAuthSnapshot = (): AuthSnapshot => {
+  if (typeof window === 'undefined') {
+    return serverAuthSnapshot;
+  }
+
+  const token = localStorage.getItem("token");
+  const nextSnapshot = {
+    authHydrated: true,
+    isAuthenticated: Boolean(token),
+    userRole: localStorage.getItem("role"),
+    userFullName: localStorage.getItem("fullName"),
+  };
+
+  if (
+    cachedAuthSnapshot.authHydrated === nextSnapshot.authHydrated &&
+    cachedAuthSnapshot.isAuthenticated === nextSnapshot.isAuthenticated &&
+    cachedAuthSnapshot.userRole === nextSnapshot.userRole &&
+    cachedAuthSnapshot.userFullName === nextSnapshot.userFullName
+  ) {
+    return cachedAuthSnapshot;
+  }
+
+  cachedAuthSnapshot = nextSnapshot;
+  return cachedAuthSnapshot;
+};
+
+const subscribeToAuthChanges = (callback: () => void) => {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  window.addEventListener("storage", callback);
+  window.addEventListener("authchange", callback);
+
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("authchange", callback);
+  };
+};
+
+const notifyAuthChanged = () => {
+  window.dispatchEvent(new Event("authchange"));
+};
 
 export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([
@@ -45,27 +110,16 @@ export default function Dashboard() {
   const [isScraping, setIsScraping] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'docs' | 'analytics'>('chat');
   
-  // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [userFullName, setUserFullName] = useState<string | null>(null);
+  const auth = useSyncExternalStore(
+    subscribeToAuthChanges,
+    getAuthSnapshot,
+    () => serverAuthSnapshot,
+  );
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Check if user is already logged in
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
-    const fullName = localStorage.getItem("fullName");
-    if (token) {
-      setIsAuthenticated(true);
-      setUserRole(role);
-      setUserFullName(fullName);
-    }
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,17 +130,15 @@ export default function Dashboard() {
       params.append('username', loginEmail);
       params.append('password', loginPassword);
 
-      const response = await axios.post(`${API_BASE}/api/v1/auth/login`, params);
+      const response = await axios.post(`${getApiBase()}/api/v1/auth/login`, params);
       const data = response.data;
       
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("fullName", data.full_name);
-      
-      setIsAuthenticated(true);
-      setUserRole(data.role);
-      setUserFullName(data.full_name);
-    } catch (error) {
+
+      notifyAuthChanged();
+    } catch {
       setLoginError("Invalid credentials. Try admin@mgi.org or user@mgi.org");
     }
   };
@@ -95,9 +147,7 @@ export default function Dashboard() {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("fullName");
-    setIsAuthenticated(false);
-    setUserRole(null);
-    setUserFullName(null);
+    notifyAuthChanged();
     setMessages([{ role: 'assistant', content: 'Welcome back. Please login.' }]);
   };
 
@@ -118,7 +168,7 @@ export default function Dashboard() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${API_BASE}/api/v1/chat`, { message: input });
+      const response = await axios.post(`${getApiBase()}/api/v1/chat`, { message: input });
       const botMessage: Message = {
         role: 'assistant',
         content: response.data.answer,
@@ -126,7 +176,7 @@ export default function Dashboard() {
         logs: response.data.agent_logs
       };
       setMessages(prev => [...prev, botMessage]);
-    } catch (error) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to the AI engine. Please ensure the backend is running.' }]);
     } finally {
       setIsLoading(false);
@@ -141,9 +191,9 @@ export default function Dashboard() {
 
     setIsUploading(true);
     try {
-      await axios.post(`${API_BASE}/api/v1/upload`, formData);
+      await axios.post(`${getApiBase()}/api/v1/upload`, formData);
       setFiles(prev => [...prev, file.name]);
-    } catch (error) {
+    } catch {
       alert("Failed to upload file");
     } finally {
       setIsUploading(false);
@@ -154,11 +204,11 @@ export default function Dashboard() {
     if (!scrapeUrl.trim()) return;
     setIsScraping(true);
     try {
-      await axios.post(`${API_BASE}/api/v1/scrape`, { url: scrapeUrl });
+      await axios.post(`${getApiBase()}/api/v1/scrape`, { url: scrapeUrl });
       setFiles(prev => [...prev, scrapeUrl]);
       setScrapeUrl('');
       alert("Website successfully scraped and indexed!");
-    } catch (error) {
+    } catch {
       alert("Failed to scrape website");
     } finally {
       setIsScraping(false);
@@ -167,14 +217,22 @@ export default function Dashboard() {
 
   const handleFeedback = async (query: string, answer: string, isPositive: boolean) => {
     try {
-      await axios.post(`${API_BASE}/api/v1/feedback`, { query, answer, is_positive: isPositive });
+      await axios.post(`${getApiBase()}/api/v1/feedback`, { query, answer, is_positive: isPositive });
       alert("Thank you for your feedback!");
     } catch (error) {
       console.error("Feedback error", error);
     }
   };
 
-  if (!isAuthenticated) {
+  if (!auth.authHydrated) {
+    return (
+      <div className="flex h-screen bg-[#0a0a0a] items-center justify-center text-white font-sans">
+        <Loader2 size={24} className="animate-spin text-blue-400" />
+      </div>
+    );
+  }
+
+  if (!auth.isAuthenticated) {
     return (
       <div className="flex h-screen bg-[#0a0a0a] items-center justify-center text-white font-sans p-4">
         <div className="glass p-8 md:p-10 rounded-3xl w-full max-w-[400px] border border-white/10 shadow-2xl">
@@ -254,7 +312,7 @@ export default function Dashboard() {
               active={activeTab === 'chat'} 
               onClick={() => setActiveTab('chat')} 
             />
-            {userRole === 'admin' && (
+            {auth.userRole === 'admin' && (
               <>
                 <NavItem 
                   icon={<Database size={18} />} 
@@ -293,7 +351,7 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
-            <span className="text-xs md:text-sm font-medium truncate max-w-[120px] md:max-w-none">{userFullName} <span className="text-gray-500 text-[10px] md:text-xs uppercase ml-1">({userRole})</span></span>
+            <span className="text-xs md:text-sm font-medium truncate max-w-[120px] md:max-w-none">{auth.userFullName} <span className="text-gray-500 text-[10px] md:text-xs uppercase ml-1">({auth.userRole})</span></span>
             <button onClick={handleLogout} className="text-[10px] md:text-xs text-red-400 hover:text-red-300 transition-colors">
               Logout
             </button>
@@ -496,7 +554,7 @@ export default function Dashboard() {
             <MessageSquare size={20} />
             <span className="text-[10px] font-medium">Chat</span>
           </button>
-          {userRole === 'admin' && (
+          {auth.userRole === 'admin' && (
             <>
               <button onClick={() => setActiveTab('docs')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'docs' ? 'text-blue-400' : 'text-gray-500'}`}>
                 <Database size={20} />
@@ -514,7 +572,7 @@ export default function Dashboard() {
   );
 }
 
-function NavItem({ icon, label, active, onClick }: { icon: any, label: string, active?: boolean, onClick: () => void }) {
+function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void }) {
   return (
     <button 
       onClick={onClick}
@@ -531,7 +589,7 @@ function NavItem({ icon, label, active, onClick }: { icon: any, label: string, a
   );
 }
 
-function UploadCard({ title, icon, count }: { title: string, icon: any, count: number }) {
+function UploadCard({ title, icon, count }: { title: string, icon: React.ReactNode, count: number }) {
   return (
     <div className="glass p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all group">
       <div className="flex items-center justify-between mb-4">

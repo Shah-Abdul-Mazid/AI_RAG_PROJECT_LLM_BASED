@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import chat, upload, scrape, admin
+from app.api.v1.endpoints import chat, upload, scrape, admin, auth
 from app.core.config import settings
 
 # ─── Application ──────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ app.add_middleware(
 )
 
 # ─── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(auth.router,   prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(chat.router,   prefix="/api/v1", tags=["Chat"])
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload"])
 app.include_router(scrape.router, prefix="/api/v1", tags=["Scrape"])
