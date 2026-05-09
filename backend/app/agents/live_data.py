@@ -16,6 +16,21 @@ WEATHER_KEYWORDS = {
     "cold",
 }
 
+LOCATION_ALIASES = {
+    "usa": "Washington DC",
+    "u s a": "Washington DC",
+    "us": "Washington DC",
+    "u s": "Washington DC",
+    "america": "Washington DC",
+    "united states": "Washington DC",
+    "united states of america": "Washington DC",
+    "uk": "London",
+    "united kingdom": "London",
+    "bangladesh": "Dhaka",
+    "bd": "Dhaka",
+    "india": "New Delhi",
+}
+
 
 class LiveDataAgent:
     """Routes real-time API questions to external data providers."""
@@ -25,7 +40,18 @@ class LiveDataAgent:
         return any(keyword in normalized_query for keyword in WEATHER_KEYWORDS)
 
     def run(self, query: str):
-        location = self._extract_weather_location(query) or "Dhaka"
+        location = self._extract_weather_location(query)
+        if not location:
+            return {
+                "answer": "Please mention a city or country so I can check live weather. For example: 'weather in Dhaka', 'USA weather', or 'temperature of Tokyo'.",
+                "sources": [],
+                "agent_logs": [
+                    "Supervisor: Routed request to Live Data Agent",
+                    "Live Data Agent: Weather intent detected, but no location was provided",
+                    "Compliance Agent: Security & PII check complete",
+                ],
+            }
+
         coordinates = self._geocode_location(location)
         weather = self._fetch_current_weather(coordinates["latitude"], coordinates["longitude"])
 
@@ -43,24 +69,51 @@ class LiveDataAgent:
         }
 
     def _extract_weather_location(self, query: str) -> Optional[str]:
+        cleaned_query = self._clean_query(query)
         patterns = [
-            r"(?:weather|temperature|forecast)\s+(?:in|for|at)\s+([a-zA-Z\s,.-]+)",
-            r"(?:in|for|at)\s+([a-zA-Z\s,.-]+)\s+(?:today|now|right now)",
+            r"(?:weather|temperature|forecast|rain|humidity|wind)\s+(?:in|for|at|of)\s+([a-zA-Z\s,.'-]+)",
+            r"(?:in|for|at|of)\s+([a-zA-Z\s,.'-]+)\s+(?:weather|temperature|forecast|rain|humidity|wind|today|now|right now)",
+            r"([a-zA-Z\s,.'-]+)\s+(?:weather|temperature|forecast|rain|humidity|wind)",
+            r"(?:weather|temperature|forecast)\s+([a-zA-Z\s,.'-]+)",
         ]
 
         for pattern in patterns:
-            match = re.search(pattern, query, re.IGNORECASE)
+            match = re.search(pattern, cleaned_query, re.IGNORECASE)
             if match:
-                return self._clean_location(match.group(1))
+                location = self._clean_location(match.group(1))
+                if location:
+                    return self._normalize_location(location)
 
         return None
 
+    def _clean_query(self, query: str) -> str:
+        cleaned_query = query.strip().lower()
+        cleaned_query = re.sub(r"\b(what is|what's|tell me|show me|give me|can you|please|current)\b", " ", cleaned_query)
+        cleaned_query = re.sub(r"\s+", " ", cleaned_query)
+        return cleaned_query.strip(" .,?!")
+
     def _clean_location(self, location: str) -> str:
-        stop_words = ["today", "now", "right now", "please", "weather"]
+        stop_words = [
+            "today",
+            "now",
+            "right now",
+            "please",
+            "weather",
+            "temperature",
+            "forecast",
+            "rain",
+            "humidity",
+            "wind",
+            "current",
+        ]
         cleaned_location = location.strip(" .,?!")
         for word in stop_words:
             cleaned_location = re.sub(rf"\b{re.escape(word)}\b", "", cleaned_location, flags=re.IGNORECASE)
         return cleaned_location.strip(" .,?!")
+
+    def _normalize_location(self, location: str) -> str:
+        normalized_location = re.sub(r"\s+", " ", location).strip().lower()
+        return LOCATION_ALIASES.get(normalized_location, location)
 
     def _geocode_location(self, location: str):
         response = requests.get(
