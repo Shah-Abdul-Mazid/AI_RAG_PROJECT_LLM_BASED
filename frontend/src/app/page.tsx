@@ -306,12 +306,6 @@ export default function Dashboard() {
               active={activeTab === 'chat'} 
               onClick={() => setActiveTab('chat')} 
             />
-            <NavItem 
-              icon={<MessageSquare size={18} />} 
-              label="AI Assistant" 
-              active={activeTab === 'chat'} 
-              onClick={() => setActiveTab('chat')} 
-            />
             {auth.userRole === 'admin' && (
               <>
                 <NavItem 
