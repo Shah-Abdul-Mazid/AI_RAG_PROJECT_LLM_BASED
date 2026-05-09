@@ -21,7 +21,10 @@ import {
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = "http://localhost:8000";
+// Dynamically set API_BASE based on where the frontend is running
+const API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+  ? `http://${window.location.hostname}:8000` 
+  : "http://localhost:8000";
 
 interface Message {
   role: 'user' | 'assistant';
