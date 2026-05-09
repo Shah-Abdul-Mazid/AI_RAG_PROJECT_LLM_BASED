@@ -17,16 +17,14 @@ USERS_DB = {
         "email": "admin@mgi.org",
         "full_name": "MGI Admin",
         "role": "admin",
-        # "admin123" hashed
-        "hashed_password": get_password_hash("admin123"),
+        "hashed_password": "PASTE_ADMIN_HASH_HERE",
     },
     "user@mgi.org": {
         "username": "user@mgi.org",
         "email": "user@mgi.org",
         "full_name": "MGI Employee",
         "role": "user",
-        # "user123" hashed
-        "hashed_password": get_password_hash("user123"),
+        "hashed_password": "PASTE_USER_HASH_HERE",
     }
 }
 
