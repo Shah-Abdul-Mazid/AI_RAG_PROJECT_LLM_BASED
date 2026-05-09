@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', sans-serif;
+}
+
+@theme {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+}
+
+@layer utilities {
+  .glass {
+    background-color: rgb(255 255 255 / 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgb(255 255 255 / 0.1);
+  }
+  
+  .gradient-text {
+    background-clip: text;
+    color: transparent;
+    background-image: linear-gradient(to right, #60a5fa, #6366f1);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
