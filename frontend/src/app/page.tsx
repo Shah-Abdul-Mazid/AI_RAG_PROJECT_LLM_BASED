@@ -113,12 +113,13 @@ const notifyAuthChanged = () => {
 };
 
 const starterPrompts = [
+  "What is today's weather in Dhaka?",
   "Summarize the latest uploaded policy document",
-  "Find financial risks across uploaded reports",
   "Which sources support this answer?",
 ];
 
 const agentPipeline = [
+  { label: "Live Data", detail: "Routes weather and API questions to real-time connectors", icon: Globe, color: "text-emerald-300" },
   { label: "Retriever", detail: "Semantic search over private knowledge", icon: Search, color: "text-sky-300" },
   { label: "Generator", detail: "Grounded synthesis with source context", icon: Brain, color: "text-violet-300" },
   { label: "Compliance", detail: "PII and policy guardrails before response", icon: ShieldCheck, color: "text-emerald-300" },
@@ -307,7 +308,7 @@ export default function Dashboard() {
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 <LoginFeature icon={<Database size={18} />} title="RAG Search" value="Pinecone" />
-                <LoginFeature icon={<Cpu size={18} />} title="AI Agents" value="Retriever + Generator" />
+                    <LoginFeature icon={<Cpu size={18} />} title="AI Agents" value="API + RAG routing" />
                 <LoginFeature icon={<LockKeyhole size={18} />} title="Security" value="JWT access" />
               </div>
             </div>
@@ -469,8 +470,8 @@ export default function Dashboard() {
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <MiniMetric label="Docs" value={documentStats.total.toString()} />
-                      <MiniMetric label="Agents" value="3" />
-                      <MiniMetric label="Mode" value="RAG" />
+                      <MiniMetric label="Agents" value="4" />
+                      <MiniMetric label="Mode" value="API + RAG" />
                     </div>
                   </div>
                 </div>
@@ -600,7 +601,7 @@ export default function Dashboard() {
                 <Panel title="Executive Signals" icon={<Gauge size={17} />}>
                   <div className="grid gap-3">
                     <Signal label="Answer grounding" value="Source aware" tone="emerald" />
-                    <Signal label="Latency target" value="< 5 sec demo" tone="sky" />
+                    <Signal label="Live API tools" value="Weather ready" tone="sky" />
                     <Signal label="Data posture" value="Private index" tone="violet" />
                   </div>
                 </Panel>
@@ -716,7 +717,7 @@ export default function Dashboard() {
 
               <div className="grid gap-4 lg:grid-cols-3">
                 <MetricCard title="Grounded responses" value="100%" icon={<CheckCircle2 size={19} />} tone="emerald" />
-                <MetricCard title="Agent stages" value="3" icon={<Layers size={19} />} tone="sky" />
+                <MetricCard title="Agent stages" value="4" icon={<Layers size={19} />} tone="sky" />
                 <MetricCard title="Access model" value="JWT" icon={<LockKeyhole size={19} />} tone="violet" />
               </div>
 
@@ -725,6 +726,7 @@ export default function Dashboard() {
                   <div className="grid gap-3 md:grid-cols-2">
                     <ArchitectureItem title="Next.js Client" detail="Responsive app shell with protected dashboard state." icon={<Globe size={18} />} />
                     <ArchitectureItem title="FastAPI Backend" detail="Async endpoints for auth, chat, upload, scrape, and feedback." icon={<Zap size={18} />} />
+                    <ArchitectureItem title="Live API Connectors" detail="Weather questions route to Open-Meteo before RAG fallback." icon={<Globe size={18} />} />
                     <ArchitectureItem title="Pinecone Vector Store" detail="Embeddings power semantic search over private sources." icon={<Database size={18} />} />
                     <ArchitectureItem title="Compliance Agent" detail="Policy and sensitive-data checks before answer delivery." icon={<ShieldCheck size={18} />} />
                   </div>
