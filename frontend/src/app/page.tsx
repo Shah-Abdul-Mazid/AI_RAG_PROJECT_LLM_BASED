@@ -1,29 +1,41 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
-import { 
-  Send, 
-  Upload, 
-  FileText, 
-  Activity, 
-  ShieldCheck, 
-  Database, 
-  Globe,
-  Trash2,
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  Activity,
+  BarChart3,
+  Brain,
+  CheckCircle2,
   ChevronRight,
+  Clock3,
+  Cpu,
+  Database,
+  FileText,
+  Gauge,
+  Globe,
+  Layers,
   Loader2,
+  LockKeyhole,
   MessageSquare,
+  Search,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  ThumbsDown,
   ThumbsUp,
-  ThumbsDown
-} from 'lucide-react';
-import axios from 'axios';
-import { motion } from 'framer-motion';
+  Trash2,
+  Upload,
+  Zap,
+} from "lucide-react";
+import axios from "axios";
+import { motion } from "framer-motion";
 
 const getApiBase = () => {
   if (
-    typeof window !== 'undefined' &&
-    window.location.hostname !== 'localhost' &&
-    window.location.hostname !== '127.0.0.1'
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1"
   ) {
     return `http://${window.location.hostname}:8000`;
   }
@@ -32,7 +44,7 @@ const getApiBase = () => {
 };
 
 interface Message {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   sources?: string[];
   logs?: string[];
@@ -45,6 +57,8 @@ interface AuthSnapshot {
   userFullName: string | null;
 }
 
+type ActiveTab = "chat" | "docs" | "analytics";
+
 const serverAuthSnapshot: AuthSnapshot = {
   authHydrated: false,
   isAuthenticated: false,
@@ -55,7 +69,7 @@ const serverAuthSnapshot: AuthSnapshot = {
 let cachedAuthSnapshot = serverAuthSnapshot;
 
 const getAuthSnapshot = (): AuthSnapshot => {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return serverAuthSnapshot;
   }
 
@@ -81,7 +95,7 @@ const getAuthSnapshot = (): AuthSnapshot => {
 };
 
 const subscribeToAuthChanges = (callback: () => void) => {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return () => {};
   }
 
@@ -98,41 +112,70 @@ const notifyAuthChanged = () => {
   window.dispatchEvent(new Event("authchange"));
 };
 
+const starterPrompts = [
+  "Summarize the latest uploaded policy document",
+  "Find financial risks across uploaded reports",
+  "Which sources support this answer?",
+];
+
+const agentPipeline = [
+  { label: "Retriever", detail: "Semantic search over private knowledge", icon: Search, color: "text-sky-300" },
+  { label: "Generator", detail: "Grounded synthesis with source context", icon: Brain, color: "text-violet-300" },
+  { label: "Compliance", detail: "PII and policy guardrails before response", icon: ShieldCheck, color: "text-emerald-300" },
+];
+
+const complianceSignals = [
+  { label: "PII redaction", value: "Active", tone: "text-emerald-300" },
+  { label: "Source grounding", value: "Required", tone: "text-sky-300" },
+  { label: "Admin controls", value: "Enabled", tone: "text-amber-300" },
+];
+
 export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Welcome to the Enterprise AI Intelligence Assistant. How can I help you analyze your documents today?' }
+    {
+      role: "assistant",
+      content:
+        "Welcome to Nexus Intelligence. Ask a question and I will search company knowledge, synthesize an answer, and show the agent trace.",
+    },
   ]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [files, setFiles] = useState<string[]>([]);
-  const [scrapeUrl, setScrapeUrl] = useState('');
+  const [scrapeUrl, setScrapeUrl] = useState("");
   const [isScraping, setIsScraping] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chat' | 'docs' | 'analytics'>('chat');
-  
+  const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
+
   const auth = useSyncExternalStore(
     subscribeToAuthChanges,
     getAuthSnapshot,
     () => serverAuthSnapshot,
   );
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const documentStats = useMemo(() => {
+    const pdfs = files.filter((file) => file.toLowerCase().endsWith(".pdf")).length;
+    const tables = files.filter((file) => /\.(csv|xlsx|xls)$/i.test(file)).length;
+    const websites = files.filter((file) => file.startsWith("http")).length;
+
+    return { pdfs, tables, websites, total: files.length };
+  }, [files]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError('');
+    setLoginError("");
     try {
-      // Create x-www-form-urlencoded data for OAuth2
       const params = new URLSearchParams();
-      params.append('username', loginEmail);
-      params.append('password', loginPassword);
+      params.append("username", loginEmail);
+      params.append("password", loginPassword);
 
       const response = await axios.post(`${getApiBase()}/api/v1/auth/login`, params);
       const data = response.data;
-      
+
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("fullName", data.full_name);
@@ -148,36 +191,38 @@ export default function Dashboard() {
     localStorage.removeItem("role");
     localStorage.removeItem("fullName");
     notifyAuthChanged();
-    setMessages([{ role: 'assistant', content: 'Welcome back. Please login.' }]);
-  };
-
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setMessages([{ role: "assistant", content: "Welcome back. Please login." }]);
   };
 
   useEffect(() => {
-    scrollToBottom();
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSendMessage = async (nextInput = input) => {
+    if (!nextInput.trim() || isLoading) return;
 
-    const userMessage: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    const userMessage: Message = { role: "user", content: nextInput };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${getApiBase()}/api/v1/chat`, { message: input });
+      const response = await axios.post(`${getApiBase()}/api/v1/chat`, { message: nextInput });
       const botMessage: Message = {
-        role: 'assistant',
+        role: "assistant",
         content: response.data.answer,
         sources: response.data.sources,
-        logs: response.data.agent_logs
+        logs: response.data.agent_logs,
       };
-      setMessages(prev => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to the AI engine. Please ensure the backend is running.' }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "I could not reach the AI engine. Please confirm the FastAPI backend is running on port 8000.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -187,12 +232,12 @@ export default function Dashboard() {
     if (!e.target.files) return;
     const file = e.target.files[0];
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     setIsUploading(true);
     try {
       await axios.post(`${getApiBase()}/api/v1/upload`, formData);
-      setFiles(prev => [...prev, file.name]);
+      setFiles((prev) => [...prev, file.name]);
     } catch {
       alert("Failed to upload file");
     } finally {
@@ -205,9 +250,9 @@ export default function Dashboard() {
     setIsScraping(true);
     try {
       await axios.post(`${getApiBase()}/api/v1/scrape`, { url: scrapeUrl });
-      setFiles(prev => [...prev, scrapeUrl]);
-      setScrapeUrl('');
-      alert("Website successfully scraped and indexed!");
+      setFiles((prev) => [...prev, scrapeUrl]);
+      setScrapeUrl("");
+      alert("Website successfully scraped and indexed.");
     } catch {
       alert("Failed to scrape website");
     } finally {
@@ -218,7 +263,7 @@ export default function Dashboard() {
   const handleFeedback = async (query: string, answer: string, isPositive: boolean) => {
     try {
       await axios.post(`${getApiBase()}/api/v1/feedback`, { query, answer, is_positive: isPositive });
-      alert("Thank you for your feedback!");
+      alert("Thank you for your feedback.");
     } catch (error) {
       console.error("Feedback error", error);
     }
@@ -226,99 +271,139 @@ export default function Dashboard() {
 
   if (!auth.authHydrated) {
     return (
-      <div className="flex h-screen bg-[#0a0a0a] items-center justify-center text-white font-sans">
-        <Loader2 size={24} className="animate-spin text-blue-400" />
+      <div className="flex h-screen items-center justify-center bg-[#08090d] text-white">
+        <Loader2 size={26} className="animate-spin text-sky-300" />
       </div>
     );
   }
 
   if (!auth.isAuthenticated) {
     return (
-      <div className="flex h-screen bg-[#0a0a0a] items-center justify-center text-white font-sans p-4">
-        <div className="glass p-8 md:p-10 rounded-3xl w-full max-w-[400px] border border-white/10 shadow-2xl">
-          <div className="flex items-center gap-3 mb-8 justify-center">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <Activity size={24} className="text-white" />
+      <div className="min-h-screen bg-[#08090d] text-white">
+        <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="flex flex-col justify-between border-r border-white/10 p-6 md:p-10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-sky-500 text-white shadow-lg shadow-sky-500/20">
+                <Activity size={24} />
+              </div>
+              <div>
+                <p className="text-lg font-semibold">Nexus Intelligence</p>
+                <p className="text-xs text-slate-400">Private enterprise RAG platform</p>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold gradient-text">Nexus Intelligence</h1>
-          </div>
-          
-          <h2 className="text-xl font-semibold text-center mb-6">Enterprise Login</h2>
-          
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Email / Username</label>
-              <input 
-                type="text" 
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors"
-                placeholder="admin@mgi.org"
-              />
+
+            <div className="max-w-2xl py-14">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-200">
+                <Sparkles size={14} />
+                Multi-agent AI for secure company knowledge
+              </div>
+              <h1 className="text-4xl font-semibold leading-tight text-white md:text-6xl">
+                Ask your enterprise data. Get grounded answers with governance.
+              </h1>
+              <p className="mt-5 max-w-xl text-sm leading-6 text-slate-400 md:text-base">
+                A recruiter-friendly showcase of FastAPI, Next.js, Pinecone, document ingestion, semantic retrieval,
+                agent orchestration, and compliance checks in one product experience.
+              </p>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                <LoginFeature icon={<Database size={18} />} title="RAG Search" value="Pinecone" />
+                <LoginFeature icon={<Cpu size={18} />} title="AI Agents" value="Retriever + Generator" />
+                <LoginFeature icon={<LockKeyhole size={18} />} title="Security" value="JWT access" />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Password</label>
-              <input 
-                type="password" 
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors"
-                placeholder="••••••••"
-              />
+
+            <p className="text-xs text-slate-500">Built for MGI interview demo readiness.</p>
+          </section>
+
+          <section className="flex items-center justify-center p-6">
+            <div className="w-full max-w-[420px] rounded-lg border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/30">
+              <div className="mb-7">
+                <p className="text-sm text-slate-400">Secure access</p>
+                <h2 className="mt-1 text-2xl font-semibold">Enterprise Login</h2>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm text-slate-300">Email / Username</span>
+                  <input
+                    type="text"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+                    placeholder="admin@mgi.org"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm text-slate-300">Password</span>
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+                    placeholder="password"
+                  />
+                </label>
+
+                {loginError && <p className="text-center text-xs text-rose-300">{loginError}</p>}
+
+                <button
+                  type="submit"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-400"
+                >
+                  <LockKeyhole size={16} />
+                  Sign In
+                </button>
+              </form>
+
+              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4 text-xs text-slate-400">
+                <p className="mb-2 font-medium text-slate-200">Demo accounts</p>
+                <p>Admin: admin@mgi.org / admin123</p>
+                <p>User: user@mgi.org / user123</p>
+              </div>
             </div>
-            
-            {loginError && <p className="text-red-400 text-xs text-center">{loginError}</p>}
-            
-            <button 
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-semibold transition-all mt-4"
-            >
-              Sign In
-            </button>
-          </form>
-          
-          <div className="mt-6 pt-6 border-t border-white/10 text-xs text-gray-500 text-center">
-            <p>Demo Accounts:</p>
-            <p>Admin: admin@mgi.org / admin123</p>
-            <p>User: user@mgi.org / user123</p>
-          </div>
+          </section>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden">
-      {/* Sidebar - Hidden on mobile, flex on md and up */}
-      <div className="hidden md:flex w-64 border-r border-white/10 flex-col glass shrink-0">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#08090d] text-white md:flex-row">
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-white/10 bg-[#101218] md:flex">
         <div className="p-6">
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Activity size={18} className="text-white" />
+          <div className="mb-8 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500 text-white">
+              <Activity size={21} />
             </div>
-            <h1 className="text-xl font-bold gradient-text">Nexus Intelligence</h1>
+            <div>
+              <h1 className="text-lg font-semibold">Nexus Intelligence</h1>
+              <p className="text-xs text-slate-500">Enterprise AI Command</p>
+            </div>
           </div>
 
-          <nav className="space-y-1">
-            <NavItem 
-              icon={<MessageSquare size={18} />} 
-              label="AI Assistant" 
-              active={activeTab === 'chat'} 
-              onClick={() => setActiveTab('chat')} 
+          <nav className="space-y-2">
+            <NavItem
+              icon={<MessageSquare size={18} />}
+              label="AI Assistant"
+              description="Ask grounded questions"
+              active={activeTab === "chat"}
+              onClick={() => setActiveTab("chat")}
             />
-            {auth.userRole === 'admin' && (
+            {auth.userRole === "admin" && (
               <>
-                <NavItem 
-                  icon={<Database size={18} />} 
-                  label="Knowledge Base" 
-                  active={activeTab === 'docs'} 
-                  onClick={() => setActiveTab('docs')} 
+                <NavItem
+                  icon={<Database size={18} />}
+                  label="Knowledge Base"
+                  description="Ingest documents and web data"
+                  active={activeTab === "docs"}
+                  onClick={() => setActiveTab("docs")}
                 />
-                <NavItem 
-                  icon={<ShieldCheck size={18} />} 
-                  label="Compliance" 
-                  active={activeTab === 'analytics'} 
-                  onClick={() => setActiveTab('analytics')} 
+                <NavItem
+                  icon={<ShieldCheck size={18} />}
+                  label="Compliance"
+                  description="Controls, agents, risk signals"
+                  active={activeTab === "analytics"}
+                  onClick={() => setActiveTab("analytics")}
                 />
               </>
             )}
@@ -326,203 +411,277 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-auto p-6">
-          <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-            <h3 className="text-xs font-semibold text-blue-400 mb-1">PRO PLAN</h3>
-            <p className="text-[10px] text-gray-400">Enterprise features enabled</p>
+          <div className="rounded-lg border border-sky-400/20 bg-sky-400/10 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-semibold text-sky-200">Production demo</span>
+              <CheckCircle2 size={16} className="text-emerald-300" />
+            </div>
+            <p className="text-xs leading-5 text-slate-400">
+              JWT auth, vector search, upload pipeline, web scrape, feedback loop, and agent trace.
+            </p>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative overflow-hidden w-full">
-        {/* Header */}
-        <header className="h-16 border-b border-white/10 flex items-center justify-between px-4 md:px-8 glass shrink-0">
-          <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
-            <span className="hidden sm:inline">Systems Status: </span>
-            <span className="flex items-center gap-1.5 text-green-400">
-              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-              <span className="hidden sm:inline">Operational</span>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#101218]/95 px-4 md:px-7">
+          <div className="flex items-center gap-3 text-xs text-slate-400 md:text-sm">
+            <span className="hidden sm:inline">System health</span>
+            <span className="flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-emerald-200">
+              <span className="h-2 w-2 rounded-full bg-emerald-300" />
+              Operational
+            </span>
+            <span className="hidden rounded-lg border border-white/10 px-3 py-1.5 text-slate-400 lg:inline-flex">
+              API: {getApiBase().replace("http://", "")}
             </span>
           </div>
-          <div className="flex items-center gap-2 md:gap-4">
-            <span className="text-xs md:text-sm font-medium truncate max-w-[120px] md:max-w-none">{auth.userFullName} <span className="text-gray-500 text-[10px] md:text-xs uppercase ml-1">({auth.userRole})</span></span>
-            <button onClick={handleLogout} className="text-[10px] md:text-xs text-red-400 hover:text-red-300 transition-colors">
+
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <p className="text-sm font-medium">{auth.userFullName}</p>
+              <p className="text-xs uppercase text-slate-500">{auth.userRole}</p>
+            </div>
+            <button onClick={handleLogout} className="rounded-lg px-3 py-2 text-xs text-rose-300 hover:bg-rose-400/10">
               Logout
             </button>
-            <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 border border-white/20 shrink-0"></div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500 text-sm font-semibold">
+              {auth.userFullName?.charAt(0) ?? "U"}
+            </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative">
-          {activeTab === 'chat' && (
-            <div className="max-w-4xl mx-auto flex flex-col h-full">
-              <div className="flex-1 space-y-6 mb-8">
-                {messages.map((msg, idx) => (
-                  <motion.div 
-                    key={idx}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[90%] md:max-w-[80%] rounded-2xl p-3 md:p-4 ${
-                      msg.role === 'user' 
-                      ? 'bg-blue-600 text-white rounded-tr-none' 
-                      : 'bg-white/5 border border-white/10 text-gray-200 rounded-tl-none'
-                    }`}>
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
-                      
-                      {msg.logs && (
-                        <div className="mt-3 pt-3 border-t border-white/5 flex flex-wrap gap-2">
-                          {msg.logs.map((log, i) => (
-                            <span key={i} className="text-[10px] px-2 py-0.5 bg-white/5 rounded text-gray-400 flex items-center gap-1">
-                              <Activity size={10} className="text-blue-400" /> {log}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+        <div className="flex-1 overflow-y-auto p-4 md:p-7">
+          {activeTab === "chat" && (
+            <div className="grid h-full gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <section className="flex min-h-[680px] flex-col rounded-lg border border-white/10 bg-[#0d0f14]">
+                <div className="border-b border-white/10 p-5">
+                  <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                    <div>
+                      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-sky-200">
+                        <Sparkles size={15} />
+                        Multi-agent intelligence assistant
+                      </div>
+                      <h2 className="text-2xl font-semibold">Ask company knowledge with confidence</h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                        The assistant retrieves trusted context, generates a grounded answer, then applies compliance
+                        checks before showing the response.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <MiniMetric label="Docs" value={documentStats.total.toString()} />
+                      <MiniMetric label="Agents" value="3" />
+                      <MiniMetric label="Mode" value="RAG" />
+                    </div>
+                  </div>
+                </div>
 
-                      {msg.sources && msg.sources.length > 0 && (
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-500">Sources:</span>
-                            {msg.sources.map((src, i) => (
-                              <span key={i} className="text-[10px] text-blue-400 hover:underline cursor-pointer flex items-center gap-1">
-                                <FileText size={10} /> {src}
+                <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                  {messages.map((msg, idx) => (
+                    <motion.div
+                      key={`${msg.role}-${idx}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[92%] rounded-lg p-4 text-sm leading-6 md:max-w-[78%] ${
+                          msg.role === "user"
+                            ? "bg-sky-500 text-white"
+                            : "border border-white/10 bg-white/[0.04] text-slate-200"
+                        }`}
+                      >
+                        <p>{msg.content}</p>
+
+                        {msg.logs && (
+                          <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                            {msg.logs.map((log, i) => (
+                              <span key={i} className="flex items-center gap-1 rounded-md bg-black/20 px-2 py-1 text-[11px] text-slate-300">
+                                <Activity size={11} className="text-sky-300" />
+                                {log}
                               </span>
                             ))}
                           </div>
-                          {msg.role === 'assistant' && idx > 0 && (
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => handleFeedback(messages[idx-1].content, msg.content, true)}
-                                className="p-1 hover:bg-white/10 rounded transition-colors text-gray-500 hover:text-green-400"
-                              >
-                                <ThumbsUp size={12} />
-                              </button>
-                              <button 
-                                onClick={() => handleFeedback(messages[idx-1].content, msg.content, false)}
-                                className="p-1 hover:bg-white/10 rounded transition-colors text-gray-500 hover:text-red-400"
-                              >
-                                <ThumbsDown size={12} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 rounded-tl-none flex items-center gap-3">
-                      <Loader2 size={16} className="animate-spin text-blue-400" />
-                      <span className="text-xs text-gray-400">Agent thinking...</span>
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
+                        )}
 
-              {/* Input Box */}
-              <div className="sticky bottom-0 bg-[#0a0a0a] pb-4 pt-2">
-                <div className="relative glass p-1 rounded-2xl flex items-center gap-2 border border-white/10">
-                  <input 
-                    type="text" 
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Ask anything about your documents..."
-                    className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm text-gray-200 placeholder:text-gray-500"
-                  />
-                  <button 
-                    onClick={handleSendMessage}
-                    disabled={isLoading}
-                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 p-2.5 rounded-xl transition-all shadow-lg shadow-blue-600/20"
-                  >
-                    <Send size={18} />
-                  </button>
+                        {msg.sources && msg.sources.length > 0 && (
+                          <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[11px] text-slate-500">Sources</span>
+                              {msg.sources.map((src, i) => (
+                                <span key={i} className="flex items-center gap-1 rounded-md bg-sky-400/10 px-2 py-1 text-[11px] text-sky-200">
+                                  <FileText size={11} />
+                                  {src}
+                                </span>
+                              ))}
+                            </div>
+                            {msg.role === "assistant" && idx > 0 && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleFeedback(messages[idx - 1].content, msg.content, true)}
+                                  className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-400/10 hover:text-emerald-300"
+                                  aria-label="Positive feedback"
+                                >
+                                  <ThumbsUp size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleFeedback(messages[idx - 1].content, msg.content, false)}
+                                  className="rounded-md p-1.5 text-slate-500 hover:bg-rose-400/10 hover:text-rose-300"
+                                  aria-label="Negative feedback"
+                                >
+                                  <ThumbsDown size={14} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+                        <Loader2 size={16} className="animate-spin text-sky-300" />
+                        Agent pipeline is retrieving, reasoning, and checking compliance...
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
                 </div>
-              </div>
+
+                <div className="border-t border-white/10 bg-[#101218] p-4">
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {starterPrompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => handleSendMessage(prompt)}
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-sky-100"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 p-1">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                      placeholder="Ask anything about your documents..."
+                      className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-600"
+                    />
+                    <button
+                      onClick={() => handleSendMessage()}
+                      disabled={isLoading}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg bg-sky-500 text-white transition-colors hover:bg-sky-400 disabled:opacity-50"
+                      aria-label="Send message"
+                    >
+                      <Send size={18} />
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <aside className="space-y-5">
+                <Panel title="Agent Pipeline" icon={<Layers size={17} />}>
+                  <div className="space-y-3">
+                    {agentPipeline.map((agent) => (
+                      <div key={agent.label} className="flex gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <agent.icon size={18} className={agent.color} />
+                        <div>
+                          <p className="text-sm font-medium text-slate-100">{agent.label}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">{agent.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+
+                <Panel title="Executive Signals" icon={<Gauge size={17} />}>
+                  <div className="grid gap-3">
+                    <Signal label="Answer grounding" value="Source aware" tone="emerald" />
+                    <Signal label="Latency target" value="< 5 sec demo" tone="sky" />
+                    <Signal label="Data posture" value="Private index" tone="violet" />
+                  </div>
+                </Panel>
+              </aside>
             </div>
           )}
 
-          {activeTab === 'docs' && (
-            <div className="max-w-5xl mx-auto pb-20 md:pb-0">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          {activeTab === "docs" && (
+            <div className="mx-auto max-w-6xl space-y-6 pb-20 md:pb-0">
+              <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
                 <div>
-                  <h2 className="text-xl md:text-2xl font-bold">Knowledge Base</h2>
-                  <p className="text-gray-400 text-xs md:text-sm mt-1">Manage documents and websites ingested into the RAG system.</p>
+                  <p className="mb-2 flex items-center gap-2 text-xs font-medium text-emerald-200">
+                    <Database size={15} />
+                    Knowledge ingestion
+                  </p>
+                  <h2 className="text-3xl font-semibold">Private Knowledge Base</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                    Upload internal files or scrape approved websites, then index the content for semantic retrieval.
+                  </p>
                 </div>
-                <div className="flex flex-col md:items-end gap-3 w-full md:w-auto">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
-                    <input 
-                      type="text" 
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="flex min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-1">
+                    <input
+                      type="text"
                       value={scrapeUrl}
                       onChange={(e) => setScrapeUrl(e.target.value)}
-                      placeholder="https://example.com"
-                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-gray-200 outline-none w-full md:w-64"
+                      placeholder="https://company-site.com/policy"
+                      className="min-w-0 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-slate-600"
                     />
-                    <button 
+                    <button
                       onClick={handleUrlScrape}
                       disabled={isScraping}
-                      className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                      className="flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium hover:bg-violet-400 disabled:opacity-50"
                     >
                       {isScraping ? <Loader2 size={16} className="animate-spin" /> : <Globe size={16} />}
-                      Scrape Link
+                      Scrape
                     </button>
                   </div>
-                  <label className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl cursor-pointer transition-all">
-                    {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-                    <span>Upload Document</span>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-medium text-sky-100 hover:bg-sky-400/20">
+                    {isUploading ? <Loader2 size={17} className="animate-spin" /> : <Upload size={17} />}
+                    Upload document
                     <input type="file" accept=".pdf,.txt,.csv,.xlsx,.docx" className="hidden" onChange={handleFileUpload} />
                   </label>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <UploadCard 
-                  title="PDF Documents" 
-                  icon={<FileText className="text-red-400" />} 
-                  count={files.filter(f => f.endsWith('.pdf')).length} 
-                />
-                <UploadCard 
-                  title="CSV/Excel Data" 
-                  icon={<Database className="text-green-400" />} 
-                  count={files.filter(f => f.endsWith('.csv') || f.endsWith('.xlsx')).length} 
-                />
-                <UploadCard 
-                  title="Web Sources" 
-                  icon={<Globe className="text-blue-400" />} 
-                  count={files.filter(f => f.startsWith('http')).length} 
-                />
+              <div className="grid gap-4 md:grid-cols-4">
+                <MetricCard title="Indexed sources" value={documentStats.total.toString()} icon={<Database size={19} />} tone="sky" />
+                <MetricCard title="PDF documents" value={documentStats.pdfs.toString()} icon={<FileText size={19} />} tone="rose" />
+                <MetricCard title="Tables" value={documentStats.tables.toString()} icon={<BarChart3 size={19} />} tone="emerald" />
+                <MetricCard title="Web sources" value={documentStats.websites.toString()} icon={<Globe size={19} />} tone="violet" />
               </div>
 
-              <div className="mt-8 md:mt-12 glass rounded-2xl border border-white/10 overflow-x-auto">
-                <table className="w-full text-left min-w-[600px]">
-                  <thead className="bg-white/5 text-gray-400 text-[10px] md:text-xs uppercase tracking-wider">
+              <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101218]">
+                <table className="w-full min-w-[680px] text-left">
+                  <thead className="border-b border-white/10 bg-white/[0.03] text-xs uppercase text-slate-500">
                     <tr>
-                      <th className="px-6 py-4 font-semibold">Document Name</th>
-                      <th className="px-6 py-4 font-semibold">Type</th>
-                      <th className="px-6 py-4 font-semibold">Status</th>
-                      <th className="px-6 py-4 font-semibold">Action</th>
+                      <th className="px-6 py-4 font-medium">Document Name</th>
+                      <th className="px-6 py-4 font-medium">Type</th>
+                      <th className="px-6 py-4 font-medium">Pipeline</th>
+                      <th className="px-6 py-4 font-medium">Status</th>
+                      <th className="px-6 py-4 font-medium">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {files.map((file, i) => (
-                      <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                      <tr key={`${file}-${i}`} className="hover:bg-white/[0.03]">
                         <td className="px-6 py-4 text-sm font-medium">{file}</td>
-                        <td className="px-6 py-4 text-xs text-gray-400">
-                          {file.startsWith('http') ? 'WEB' : file.split('.').pop()?.toUpperCase()}
+                        <td className="px-6 py-4 text-xs text-slate-400">
+                          {file.startsWith("http") ? "WEB" : file.split(".").pop()?.toUpperCase()}
                         </td>
+                        <td className="px-6 py-4 text-xs text-slate-400">{"Parse > Chunk > Embed > Upsert"}</td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-[10px] font-semibold">
-                            <span className="w-1 h-1 rounded-full bg-green-400"></span>
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-400/10 px-2 py-1 text-xs font-medium text-emerald-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                             Indexed
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <button className="text-gray-500 hover:text-red-400 transition-colors">
+                          <button className="rounded-md p-2 text-slate-500 hover:bg-rose-400/10 hover:text-rose-300" aria-label="Delete source">
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -530,8 +689,8 @@ export default function Dashboard() {
                     ))}
                     {files.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-gray-500 italic text-sm">
-                          No documents uploaded yet.
+                        <td colSpan={5} className="px-6 py-14 text-center text-sm text-slate-500">
+                          Upload a PDF, Excel file, document, or approved URL to show the ingestion pipeline.
                         </td>
                       </tr>
                     )}
@@ -540,24 +699,58 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {activeTab === "analytics" && (
+            <div className="mx-auto max-w-6xl space-y-6">
+              <div>
+                <p className="mb-2 flex items-center gap-2 text-xs font-medium text-amber-200">
+                  <ShieldAlert size={15} />
+                  Governance and reliability
+                </p>
+                <h2 className="text-3xl font-semibold">Compliance Command Center</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                  This view explains the enterprise thinking behind the system: retrieval confidence, traceability,
+                  redaction, and controls that matter to real organizations.
+                </p>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <MetricCard title="Grounded responses" value="100%" icon={<CheckCircle2 size={19} />} tone="emerald" />
+                <MetricCard title="Agent stages" value="3" icon={<Layers size={19} />} tone="sky" />
+                <MetricCard title="Access model" value="JWT" icon={<LockKeyhole size={19} />} tone="violet" />
+              </div>
+
+              <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+                <Panel title="Enterprise Architecture" icon={<Cpu size={17} />}>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <ArchitectureItem title="Next.js Client" detail="Responsive app shell with protected dashboard state." icon={<Globe size={18} />} />
+                    <ArchitectureItem title="FastAPI Backend" detail="Async endpoints for auth, chat, upload, scrape, and feedback." icon={<Zap size={18} />} />
+                    <ArchitectureItem title="Pinecone Vector Store" detail="Embeddings power semantic search over private sources." icon={<Database size={18} />} />
+                    <ArchitectureItem title="Compliance Agent" detail="Policy and sensitive-data checks before answer delivery." icon={<ShieldCheck size={18} />} />
+                  </div>
+                </Panel>
+
+                <Panel title="Control Signals" icon={<Activity size={17} />}>
+                  <div className="space-y-3">
+                    {complianceSignals.map((signal) => (
+                      <div key={signal.label} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <span className="text-sm text-slate-400">{signal.label}</span>
+                        <span className={`text-sm font-medium ${signal.tone}`}>{signal.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Mobile Bottom Navigation */}
-        <div className="md:hidden glass border-t border-white/10 flex justify-around items-center p-3 shrink-0">
-          <button onClick={() => setActiveTab('chat')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'chat' ? 'text-blue-400' : 'text-gray-500'}`}>
-            <MessageSquare size={20} />
-            <span className="text-[10px] font-medium">Chat</span>
-          </button>
-          {auth.userRole === 'admin' && (
+        <div className="flex shrink-0 justify-around border-t border-white/10 bg-[#101218] p-2 md:hidden">
+          <MobileNav icon={<MessageSquare size={20} />} label="Chat" active={activeTab === "chat"} onClick={() => setActiveTab("chat")} />
+          {auth.userRole === "admin" && (
             <>
-              <button onClick={() => setActiveTab('docs')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'docs' ? 'text-blue-400' : 'text-gray-500'}`}>
-                <Database size={20} />
-                <span className="text-[10px] font-medium">Docs</span>
-              </button>
-              <button onClick={() => setActiveTab('analytics')} className={`p-2 rounded-xl flex flex-col items-center gap-1 transition-colors ${activeTab === 'analytics' ? 'text-blue-400' : 'text-gray-500'}`}>
-                <ShieldCheck size={20} />
-                <span className="text-[10px] font-medium">Compliance</span>
-              </button>
+              <MobileNav icon={<Database size={20} />} label="Docs" active={activeTab === "docs"} onClick={() => setActiveTab("docs")} />
+              <MobileNav icon={<ShieldCheck size={20} />} label="Control" active={activeTab === "analytics"} onClick={() => setActiveTab("analytics")} />
             </>
           )}
         </div>
@@ -566,34 +759,121 @@ export default function Dashboard() {
   );
 }
 
-function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void }) {
+function LoginFeature({ icon, title, value }: { icon: React.ReactNode; title: string; value: string }) {
   return (
-    <button 
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+      <div className="mb-3 text-sky-200">{icon}</div>
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 text-xs text-slate-500">{value}</p>
+    </div>
+  );
+}
+
+function NavItem({
+  icon,
+  label,
+  description,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-        active 
-        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-        : 'text-gray-400 hover:text-white hover:bg-white/5'
+      className={`w-full rounded-lg px-4 py-3 text-left transition-colors ${
+        active ? "bg-sky-500 text-white shadow-lg shadow-sky-500/15" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
       }`}
     >
-      {icon}
-      <span className="text-sm font-medium">{label}</span>
-      {active && <ChevronRight size={14} className="ml-auto opacity-50" />}
+      <span className="flex items-center gap-3">
+        {icon}
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">{label}</span>
+          <span className={`mt-1 block text-xs ${active ? "text-sky-50/80" : "text-slate-600"}`}>{description}</span>
+        </span>
+        {active && <ChevronRight size={15} />}
+      </span>
     </button>
   );
 }
 
-function UploadCard({ title, icon, count }: { title: string, icon: React.ReactNode, count: number }) {
+function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="glass p-6 rounded-2xl border border-white/10 hover:border-white/20 transition-all group">
-      <div className="flex items-center justify-between mb-4">
-        <div className="p-3 rounded-xl bg-white/5 group-hover:bg-white/10 transition-colors">
-          {icon}
-        </div>
-        <span className="text-2xl font-bold">{count}</span>
-      </div>
-      <h3 className="font-semibold text-gray-200">{title}</h3>
-      <p className="text-xs text-gray-500 mt-1">Processed and vector-indexed.</p>
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3">
+      <p className="text-base font-semibold">{value}</p>
+      <p className="mt-1 text-[11px] text-slate-500">{label}</p>
     </div>
+  );
+}
+
+function MetricCard({ title, value, icon, tone }: { title: string; value: string; icon: React.ReactNode; tone: "sky" | "emerald" | "violet" | "rose" }) {
+  const toneClass = {
+    sky: "bg-sky-400/10 text-sky-200 border-sky-400/20",
+    emerald: "bg-emerald-400/10 text-emerald-200 border-emerald-400/20",
+    violet: "bg-violet-400/10 text-violet-200 border-violet-400/20",
+    rose: "bg-rose-400/10 text-rose-200 border-rose-400/20",
+  }[tone];
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#101218] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <span className={`rounded-lg border p-2 ${toneClass}`}>{icon}</span>
+        <Clock3 size={15} className="text-slate-600" />
+      </div>
+      <p className="text-2xl font-semibold">{value}</p>
+      <p className="mt-1 text-sm text-slate-500">{title}</p>
+    </div>
+  );
+}
+
+function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border border-white/10 bg-[#101218] p-5">
+      <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+        <span className="text-sky-200">{icon}</span>
+        {title}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Signal({ label, value, tone }: { label: string; value: string; tone: "emerald" | "sky" | "violet" }) {
+  const toneClass = {
+    emerald: "text-emerald-200 bg-emerald-400/10",
+    sky: "text-sky-200 bg-sky-400/10",
+    violet: "text-violet-200 bg-violet-400/10",
+  }[tone];
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] p-3">
+      <span className="text-sm text-slate-400">{label}</span>
+      <span className={`rounded-md px-2 py-1 text-xs font-medium ${toneClass}`}>{value}</span>
+    </div>
+  );
+}
+
+function ArchitectureItem({ title, detail, icon }: { title: string; detail: string; icon: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+      <div className="mb-3 text-sky-200">{icon}</div>
+      <p className="text-sm font-medium text-slate-100">{title}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function MobileNav({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className={`rounded-lg px-4 py-2 text-xs ${active ? "bg-sky-500 text-white" : "text-slate-500"}`}>
+      <span className="flex flex-col items-center gap-1">
+        {icon}
+        {label}
+      </span>
+    </button>
   );
 }

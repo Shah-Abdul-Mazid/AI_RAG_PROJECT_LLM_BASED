@@ -1,16 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
+  --background: #08090d;
   --foreground: #ededed;
   --primary: #3b82f6;
   --primary-hover: #2563eb;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
 }
 
 @theme {
@@ -29,6 +38,11 @@ body {
     background-clip: text;
     color: transparent;
     background-image: linear-gradient(to right, #60a5fa, #6366f1);
+  }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
   }
 }
 
