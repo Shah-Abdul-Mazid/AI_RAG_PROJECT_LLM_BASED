@@ -4,7 +4,7 @@ import requests
 from app.core.config import settings
 
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 except ImportError:
     DDGS = None
 
