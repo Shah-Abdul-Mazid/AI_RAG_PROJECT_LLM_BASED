@@ -244,7 +244,12 @@ export default function Dashboard() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${getApiBase()}/api/v1/chat`, { message: nextInput });
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `${getApiBase()}/api/v1/chat`, 
+        { message: nextInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const botMessage: Message = {
         role: "assistant",
         content: response.data.answer,
@@ -252,7 +257,8 @@ export default function Dashboard() {
         logs: response.data.agent_logs,
       };
       setMessages((prev) => [...prev, botMessage]);
-    } catch {
+    } catch (error) {
+      console.error("Chat error:", error);
       setMessages((prev) => [
         ...prev,
         {
@@ -273,7 +279,10 @@ export default function Dashboard() {
 
     setIsUploading(true);
     try {
-      await axios.post(`${getApiBase()}/api/v1/upload`, formData);
+      const token = localStorage.getItem("token");
+      await axios.post(`${getApiBase()}/api/v1/upload`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setFiles((prev) => [...prev, file.name]);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data?.detail) {
@@ -290,7 +299,10 @@ export default function Dashboard() {
     if (!scrapeUrl.trim()) return;
     setIsScraping(true);
     try {
-      await axios.post(`${getApiBase()}/api/v1/scrape`, { url: scrapeUrl });
+      const token = localStorage.getItem("token");
+      await axios.post(`${getApiBase()}/api/v1/scrape`, { url: scrapeUrl }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setFiles((prev) => [...prev, scrapeUrl]);
       setScrapeUrl("");
       alert("Website successfully scraped and indexed.");
@@ -303,7 +315,10 @@ export default function Dashboard() {
 
   const handleFeedback = async (query: string, answer: string, isPositive: boolean) => {
     try {
-      await axios.post(`${getApiBase()}/api/v1/feedback`, { query, answer, is_positive: isPositive });
+      const token = localStorage.getItem("token");
+      await axios.post(`${getApiBase()}/api/v1/feedback`, { query, answer, is_positive: isPositive }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert("Thank you for your feedback.");
     } catch (error) {
       console.error("Feedback error", error);

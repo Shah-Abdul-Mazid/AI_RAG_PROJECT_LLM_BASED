@@ -4,6 +4,9 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.core.config import settings
 from app.agents.retriever import retriever_agent
 from app.db.pinecone import vector_store
+from app.api.v1.endpoints.auth import get_current_user
+from fastapi import Depends
+from app.db.models import User
 
 router = APIRouter()
 
@@ -54,7 +57,10 @@ def table_to_records(file_path: str, filename: str):
 
 
 @router.post("/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
     try:
         os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
         file_path = os.path.join(settings.UPLOADS_DIR, file.filename)

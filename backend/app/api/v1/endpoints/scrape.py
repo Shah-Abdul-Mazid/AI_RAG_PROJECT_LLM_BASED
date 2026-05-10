@@ -4,6 +4,9 @@ from app.agents.retriever import retriever_agent
 from app.db.pinecone import vector_store
 import requests
 from bs4 import BeautifulSoup
+from app.api.v1.endpoints.auth import get_current_user
+from fastapi import Depends
+from app.db.models import User
 
 router = APIRouter()
 
@@ -14,7 +17,10 @@ class BulkScrapeRequest(BaseModel):
     urls: list[str]
 
 @router.post("/scrape")
-async def scrape_website(request: ScrapeRequest):
+async def scrape_website(
+    request: ScrapeRequest,
+    current_user: User = Depends(get_current_user)
+):
     # Existing logic...
     try:
         return _perform_scrape(request.url)
@@ -22,7 +28,10 @@ async def scrape_website(request: ScrapeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/bulk-scrape")
-async def bulk_scrape_websites(request: BulkScrapeRequest):
+async def bulk_scrape_websites(
+    request: BulkScrapeRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Handles multiple URLs in a single request (Batch Logic)"""
     results = []
     for url in request.urls:
