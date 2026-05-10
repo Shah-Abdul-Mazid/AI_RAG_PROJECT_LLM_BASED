@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.endpoints import chat, upload, scrape, admin, auth
 from app.core.config import settings
+from app.db.database import Base, engine
+from app.db import models
 
 # ─── Application ──────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -10,6 +12,7 @@ app = FastAPI(
     description="Enterprise Multi-Agent RAG Platform",
     version="1.0.0"
 )
+Base.metadata.create_all(bind=engine)
 
 # ─── Middleware ────────────────────────────────────────────────────────────────
 app.add_middleware(
