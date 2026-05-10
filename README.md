@@ -5,7 +5,7 @@
 [![Pinecone](https://img.shields.io/badge/VectorDB-Pinecone-262626.svg?style=flat&logo=pinecone&logoColor=white)](https://www.pinecone.io/)
 [![LangGraph](https://img.shields.io/badge/Orchestration-Custom%20Agents-blue.svg?style=flat)](https://langchain-ai.github.io/langgraph/)
 
-> **Nexus Intelligence** is a state-of-the-art AI ecosystem designed to transform massive corporate data into instant, secure, and actionable insights. Built for **Meghna Group of Industries (MGI)**, it leverages a sophisticated multi-agent architecture to ensure grounded, compliant, and real-time intelligence.
+> **Nexus Intelligence** is a state-of-the-art AI ecosystem designed to transform massive corporate data into instant, secure, and actionable insights. Built for **Business Product Solutions**, it leverages a sophisticated multi-agent architecture to ensure grounded, compliant, and real-time intelligence.
 
 ---
 
