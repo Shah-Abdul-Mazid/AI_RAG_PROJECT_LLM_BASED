@@ -32,16 +32,20 @@ import axios from "axios";
 import { motion } from "framer-motion";
 
 const getApiBase = () => {
-  if (
-    typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1"
-  ) {
-    return "";
+  if (typeof window === "undefined") {
+    return "http://localhost:8000";
   }
 
-  return "http://localhost:8000";
+  if (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  ) {
+    return "http://localhost:8000";
+  }
+
+  return "https://nexusintelligence.duckdns.org";
 };
+
 
 interface Message {
   role: "user" | "assistant";
