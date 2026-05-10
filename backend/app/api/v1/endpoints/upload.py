@@ -86,10 +86,13 @@ async def upload_document(file: UploadFile = File(...)):
             from app.utils.unstructured_loader import advanced_partition_file
             chunks = advanced_partition_file(file_path)
 
+            import hashlib
             for i, chunk in enumerate(chunks):
                 vec = retriever_agent._get_embeddings(chunk)
+                # Generate a safe, short hash for the ID
+                file_hash = hashlib.md5(file.filename.encode()).hexdigest()[:10]
                 vectors.append({
-                    "id": f"doc_{file.filename}_{i}",
+                    "id": f"doc_{file_hash}_{i}",
                     "values": vec,
                     "metadata": {
                         "text": chunk,
@@ -97,6 +100,7 @@ async def upload_document(file: UploadFile = File(...)):
                         "chunk": i,
                     },
                 })
+
 
         if vectors:
             vector_store.index.upsert(vectors=vectors)

@@ -32,19 +32,18 @@ import axios from "axios";
 import { motion } from "framer-motion";
 
 const getApiBase = () => {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined") return "http://localhost:8000";
+  const hostname = window.location.hostname;
+
+  // If local, use localhost:8000
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
     return "http://localhost:8000";
   }
 
-  if (
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1"
-  ) {
-    return "http://localhost:8000";
-  }
-
-  return "https://nexusintelligence.duckdns.org";
+  // In production, return an empty string to use RELATIVE paths
+  return ""; 
 };
+
 
 
 interface Message {
@@ -276,8 +275,12 @@ export default function Dashboard() {
     try {
       await axios.post(`${getApiBase()}/api/v1/upload`, formData);
       setFiles((prev) => [...prev, file.name]);
-    } catch {
-      alert("Failed to upload file");
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        alert(`Upload Failed: ${error.response.data.detail}`);
+      } else {
+        alert("Failed to upload file. Check if backend is running.");
+      }
     } finally {
       setIsUploading(false);
     }
