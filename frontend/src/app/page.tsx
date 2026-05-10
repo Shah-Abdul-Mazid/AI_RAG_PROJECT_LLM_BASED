@@ -37,7 +37,7 @@ const getApiBase = () => {
     window.location.hostname !== "localhost" &&
     window.location.hostname !== "127.0.0.1"
   ) {
-    return `http://${window.location.hostname}:8000`;
+    return "";
   }
 
   return "http://localhost:8000";
@@ -155,6 +155,9 @@ export default function Dashboard() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [registerFullName, setRegisterFullName] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -169,6 +172,7 @@ export default function Dashboard() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
+    setAuthMessage("");
     try {
       const params = new URLSearchParams();
       params.append("username", loginEmail);
@@ -184,6 +188,35 @@ export default function Dashboard() {
       notifyAuthChanged();
     } catch {
       setLoginError("Invalid credentials. Try admin@mgi.org or user@mgi.org");
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setAuthMessage("");
+
+    if (!registerFullName.trim()) {
+      setLoginError("Please enter your full name.");
+      return;
+    }
+
+    try {
+      await axios.post(`${getApiBase()}/api/v1/auth/register`, {
+        email: loginEmail,
+        password: loginPassword,
+        full_name: registerFullName,
+      });
+
+      setAuthMessage("Account created. You can sign in now.");
+      setAuthMode("login");
+      setLoginPassword("");
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        setLoginError(String(error.response.data.detail));
+      } else {
+        setLoginError("Could not create account. Please try again.");
+      }
     }
   };
 
@@ -320,10 +353,53 @@ export default function Dashboard() {
             <div className="w-full max-w-[420px] rounded-lg border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/30">
               <div className="mb-7">
                 <p className="text-sm text-slate-400">Secure access</p>
-                <h2 className="mt-1 text-2xl font-semibold">Enterprise Login</h2>
+                <h2 className="mt-1 text-2xl font-semibold">
+                  {authMode === "login" ? "Enterprise Login" : "Create Account"}
+                </h2>
               </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
+              <div className="mb-5 grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-black/20 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setLoginError("");
+                    setAuthMessage("");
+                  }}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    authMode === "login" ? "bg-sky-500 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("register");
+                    setLoginError("");
+                    setAuthMessage("");
+                  }}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    authMode === "register" ? "bg-sky-500 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
+
+              <form onSubmit={authMode === "login" ? handleLogin : handleRegister} className="space-y-4">
+                {authMode === "register" && (
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-slate-300">Full Name</span>
+                    <input
+                      type="text"
+                      value={registerFullName}
+                      onChange={(e) => setRegisterFullName(e.target.value)}
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+                      placeholder="New User"
+                    />
+                  </label>
+                )}
                 <label className="block">
                   <span className="mb-2 block text-sm text-slate-300">Email / Username</span>
                   <input
@@ -345,6 +421,7 @@ export default function Dashboard() {
                   />
                 </label>
 
+                {authMessage && <p className="text-center text-xs text-emerald-300">{authMessage}</p>}
                 {loginError && <p className="text-center text-xs text-rose-300">{loginError}</p>}
 
                 <button
@@ -352,13 +429,13 @@ export default function Dashboard() {
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-400"
                 >
                   <LockKeyhole size={16} />
-                  Sign In
+                  {authMode === "login" ? "Sign In" : "Create Account"}
                 </button>
               </form>
 
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4 text-xs text-slate-400">
                 <p className="mb-2 font-medium text-slate-200">Demo accounts</p>
-                <p>Admin: admin@mgi.org / admin123</p>
+                <p>Admin: admin@mgi.org / Admin@123</p>
                 <p>User: user@mgi.org / user123</p>
               </div>
             </div>
