@@ -23,6 +23,8 @@ class RetrieverAgent:
         
         context = memory_context + "\n\n".join([m["metadata"].get("text", "") for m in results["matches"]])
         sources = list(set([m["metadata"].get("source", "unknown") for m in results["matches"]]))
+        if memory_context:
+            sources.insert(0, "Verified Feedback Memory")
         return context, sources
 
     def _get_embeddings(self, text: str):
