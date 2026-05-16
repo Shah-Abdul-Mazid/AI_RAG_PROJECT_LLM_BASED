@@ -14,6 +14,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     message: str
     chat_id: int = None
+    provider: str = None
 
 class FeedbackRequest(BaseModel):
     query: str
@@ -44,7 +45,7 @@ async def chat_endpoint(
         db.commit()
 
         # 3. Get AI Response
-        response = await rag_service.answer_query(request.message)
+        response = await rag_service.answer_query(request.message, provider=request.provider)
 
         # 4. Save Assistant Message
         assistant_msg = Message(

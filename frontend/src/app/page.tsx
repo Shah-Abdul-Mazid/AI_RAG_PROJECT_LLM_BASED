@@ -149,6 +149,7 @@ export default function Dashboard() {
   const [scrapeUrl, setScrapeUrl] = useState("");
   const [isScraping, setIsScraping] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
+  const [selectedProvider, setSelectedProvider] = useState("ollama");
 
   const auth = useSyncExternalStore(
     subscribeToAuthChanges,
@@ -247,7 +248,10 @@ export default function Dashboard() {
       const token = localStorage.getItem("token");
       const response = await axios.post(
         `${getApiBase()}/api/v1/chat`, 
-        { message: nextInput },
+        { 
+          message: nextInput,
+          provider: selectedProvider
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const botMessage: Message = {
@@ -561,7 +565,20 @@ export default function Dashboard() {
                         <Sparkles size={15} />
                         Multi-agent intelligence assistant
                       </div>
-                      <h2 className="text-2xl font-semibold">Ask company knowledge with confidence</h2>
+                      <div className="flex items-center gap-4">
+                        <h2 className="text-2xl font-semibold">Ask company knowledge with confidence</h2>
+                        <select 
+                          value={selectedProvider}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-sky-200 outline-none transition-colors focus:border-sky-400"
+                        >
+                          <option value="openai">GPT-4o (OpenAI)</option>
+                          <option value="grok">Grok-2 (X.AI)</option>
+                          <option value="gemini">Gemini 1.5 Flash</option>
+                          <option value="bedrock">AWS Bedrock (Llama 3)</option>
+                          <option value="ollama">Local Llama (Ollama)</option>
+                        </select>
+                      </div>
                       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                         The assistant retrieves trusted context, generates a grounded answer, then applies compliance
                         checks before showing the response.

@@ -7,8 +7,9 @@ from app.agents.live_data import live_data_agent
 class SupervisorAgent:
     """The Master Orchestrator that manages the Agentic Workflow"""
     
-    async def process_request(self, query: str):
-        logs = [f"Supervisor: Orchestrating workflow using {settings.LLM_PROVIDER.upper()}"]
+    async def process_request(self, query: str, provider: str = None):
+        selected_provider = provider or settings.LLM_PROVIDER
+        logs = [f"Supervisor: Orchestrating workflow using {selected_provider.upper()}"]
 
         if live_data_agent.can_handle(query):
             try:
@@ -27,8 +28,8 @@ class SupervisorAgent:
         logs.append("Retriever Agent: Context retrieved from Pinecone Cloud")
         
         # 2. Delegate to Generator
-        answer = generator_agent.run(query, context)
-        logs.append("Generator Agent: Synthesized answer from retrieved data")
+        answer = generator_agent.run(query, context, provider=provider)
+        logs.append(f"Generator Agent: Synthesized answer using {selected_provider.upper()}")
         
         # 3. Delegate to Compliance
         check = compliance_agent.run(answer)
