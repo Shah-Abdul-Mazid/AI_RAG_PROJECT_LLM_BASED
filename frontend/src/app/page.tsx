@@ -149,7 +149,7 @@ export default function Dashboard() {
   const [scrapeUrl, setScrapeUrl] = useState("");
   const [isScraping, setIsScraping] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
-  const [selectedProvider, setSelectedProvider] = useState("ollama");
+  const [selectedProvider, setSelectedProvider] = useState("openai");
 
   const auth = useSyncExternalStore(
     subscribeToAuthChanges,
@@ -576,7 +576,6 @@ export default function Dashboard() {
                           <option value="grok">Grok-2 (X.AI)</option>
                           <option value="gemini">Gemini 1.5 Flash</option>
                           <option value="bedrock">AWS Bedrock (Llama 3)</option>
-                          <option value="ollama">Local Llama (Ollama)</option>
                         </select>
                       </div>
                       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">

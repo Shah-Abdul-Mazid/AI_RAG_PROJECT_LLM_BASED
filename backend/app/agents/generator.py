@@ -22,17 +22,6 @@ class GeneratorAgent:
             }
             response = requests.post(url, headers=headers, json=payload)
             return response.json()["choices"][0]["message"]["content"]
-            
-        elif provider == "ollama":
-            url = f"{settings.OLLAMA_BASE_URL}/api/chat"
-            payload = {
-                "model": settings.OLLAMA_MODEL,
-                "messages": [{"role": "user", "content": f"Context: {context}\n\nQuery: {query}"}],
-                "stream": False
-            }
-            response = requests.post(url, json=payload, timeout=10)
-            return response.json()["message"]["content"]
-
         elif provider == "grok":
             url = "https://api.x.ai/v1/chat/completions"
             headers = {"Authorization": f"Bearer {settings.GROK_API_KEY}"}

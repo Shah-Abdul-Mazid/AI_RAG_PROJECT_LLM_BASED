@@ -14,9 +14,6 @@ class Settings(BaseSettings):
     GROK_API_KEY: str = os.getenv("GROK_API_KEY", "")
     WEATHER_API_KEY: str = os.getenv("WEATHER_API_KEY", "")
     
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.1")
-    
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
 
     
