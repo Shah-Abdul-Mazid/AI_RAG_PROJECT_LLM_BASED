@@ -23,8 +23,8 @@ class SupervisorAgent:
                 logs.append(f"Live Data Agent: API lookup failed ({exc})")
                 logs.append("Supervisor: Falling back to enterprise knowledge retrieval")
         
-        # 1. Delegate to Retriever
-        context, sources = retriever_agent.run(query)
+        # 1. Delegate to Retriever (pass provider so embedding dimensions match)
+        context, sources = retriever_agent.run(query, provider=provider)
         logs.append("Retriever Agent: Context retrieved from Pinecone Cloud")
         
         # 2. Delegate to Generator
