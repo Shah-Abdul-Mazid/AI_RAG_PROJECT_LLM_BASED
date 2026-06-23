@@ -32,16 +32,9 @@ import axios from "axios";
 import { motion } from "framer-motion";
 
 const getApiBase = () => {
-  if (typeof window === "undefined") return "http://localhost:8000";
-  const hostname = window.location.hostname;
-
-  // If local, use localhost:8000
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return "http://localhost:8000";
-  }
-
-  // In production, return an empty string to use RELATIVE paths
-  return ""; 
+  // Always use the production backend — works from both local dev and production
+  if (typeof window === "undefined") return "https://nexusintelligence.duckdns.org";
+  return "https://nexusintelligence.duckdns.org";
 };
 
 
@@ -536,7 +529,7 @@ export default function Dashboard() {
               Operational
             </span>
             <span className="hidden rounded-lg border border-white/10 px-3 py-1.5 text-slate-400 lg:inline-flex">
-              API: {getApiBase().replace("http://", "")}
+              API: {getApiBase().replace("https://", "")}
             </span>
           </div>
 
