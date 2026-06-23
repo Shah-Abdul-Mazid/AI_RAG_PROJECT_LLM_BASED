@@ -10,9 +10,6 @@ class GeneratorAgent:
             return self._call_provider(selected_provider, query, context)
         except Exception as e:
             print(f"Error with {selected_provider}: {e}")
-            if selected_provider == "ollama":
-                print("Falling back to OpenAI for high availability...")
-                return self._call_provider("openai", query, context)
             raise e
 
     def _call_provider(self, provider: str, query: str, context: str):
