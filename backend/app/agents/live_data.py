@@ -4,14 +4,14 @@ import requests
 from app.core.config import settings
 
 try:
-    from ddgs import DDGS
+    from tavily import TavilyClient
 except ImportError:
-    DDGS = None
+    TavilyClient = None
 
 # Keywords to trigger live data agent
 LIVE_KEYWORDS = [
     "weather", "temperature", "forecast", "rain", "humidity", "wind",
-    "today", "now", "recent", "latest", "news", "current", "president", "who is", "what is"
+    "today", "now", "recent", "latest", "news", "current", "president", "stock", "price"
 ]
 
 class LiveDataAgent:
@@ -44,11 +44,11 @@ class LiveDataAgent:
                     pass
 
         # 2. General Web Search for Recent/Live Data
-        if not DDGS:
+        if not settings.TAVILY_API_KEY:
             return {
-                "answer": "DuckDuckGo search is not installed. Please run `pip install duckduckgo-search` in the backend folder.",
+                "answer": "Tavily API key is missing. Please set TAVILY_API_KEY in your backend .env file.",
                 "sources": [],
-                "agent_logs": ["Live Data Agent: Missing duckduckgo-search library."]
+                "agent_logs": ["Live Data Agent: Missing TAVILY_API_KEY."]
             }
 
         search_results = self._search_web(query)
@@ -124,8 +124,20 @@ class LiveDataAgent:
 
     def _search_web(self, query: str, max_results=3):
         try:
-            with DDGS() as ddgs:
-                return list(ddgs.text(query, max_results=max_results))
+            if settings.TAVILY_API_KEY:
+                from tavily import TavilyClient
+                tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
+                response = tavily_client.search(query=query, max_results=max_results)
+                
+                mapped_results = []
+                for res in response.get("results", []):
+                    mapped_results.append({
+                        "title": res.get("title", ""),
+                        "body": res.get("content", ""),
+                        "href": res.get("url", "")
+                    })
+                return mapped_results
+            return []
         except Exception as e:
             print(f"Search error: {e}")
             return []

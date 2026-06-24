@@ -44,6 +44,16 @@ interface Message {
   content: string;
   sources?: string[];
   logs?: string[];
+  shap?: Record<string, number>;
+  lime?: Record<string, number>;
+  fairness?: {
+    gender: Record<string, number>;
+    age: Record<string, number>;
+    demographic_parity_gap_gender: number;
+    demographic_parity_gap_age: number;
+  };
+  profile?: Record<string, number>;
+  decision?: string;
 }
 
 interface AuthSnapshot {
@@ -122,7 +132,10 @@ const agentPipeline = [
 ];
 
 const complianceSignals = [
-  { label: "PII redaction", value: "Active", tone: "text-emerald-300" },
+  { label: "PII redaction (Email, Phone, SSN)", value: "Active", tone: "text-emerald-300" },
+  { label: "Credit Card check (Luhn)", value: "Active", tone: "text-emerald-300" },
+  { label: "ABA Routing check (RTN)", value: "Active", tone: "text-emerald-300" },
+  { label: "IBAN protection", value: "Active", tone: "text-emerald-300" },
   { label: "Source grounding", value: "Required", tone: "text-sky-300" },
   { label: "Admin controls", value: "Enabled", tone: "text-amber-300" },
 ];
@@ -252,6 +265,11 @@ export default function Dashboard() {
         content: response.data.answer,
         sources: response.data.sources,
         logs: response.data.agent_logs,
+        shap: response.data.shap,
+        lime: response.data.lime,
+        fairness: response.data.fairness,
+        profile: response.data.profile,
+        decision: response.data.decision,
       };
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
@@ -600,6 +618,100 @@ export default function Dashboard() {
                         }`}
                       >
                         <p>{msg.content}</p>
+
+                        {/* Explainability Section (SHAP & LIME) */}
+                        {(msg.shap || msg.lime) && (
+                          <div className="mt-5 space-y-4 rounded-lg border border-white/10 bg-black/30 p-4">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                              <div className="flex items-center gap-2">
+                                <ShieldCheck size={16} className="text-emerald-400" />
+                                <span className="font-semibold text-xs text-white uppercase tracking-wider">Responsible AI Explainability (SHAP & LIME)</span>
+                              </div>
+                              <span className={`rounded px-2 py-0.5 text-xs font-semibold ${msg.decision === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                Model Decision: {msg.decision}
+                              </span>
+                            </div>
+
+                            {msg.profile && (
+                              <div>
+                                <p className="mb-2 text-xs font-medium text-slate-400">Applicant Profile Evaluated</p>
+                                <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                                  {Object.entries(msg.profile).map(([key, val]) => (
+                                    <div key={key} className="rounded bg-white/[0.02] border border-white/5 p-2">
+                                      <span className="block text-[10px] text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                                      <span className="font-mono text-slate-300">
+                                        {key === 'annual_income' ? `$${val.toLocaleString()}` : val}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {msg.shap && (
+                              <div className="space-y-2 border-t border-white/5 pt-3">
+                                <p className="text-xs font-medium text-slate-400">SHAP Feature Influence (Pushes Approved vs. Rejected)</p>
+                                <div className="space-y-2.5">
+                                  {Object.entries(msg.shap).map(([key, val]) => {
+                                    const percent = Math.min(Math.abs(val) * 100, 100);
+                                    const isPositive = val >= 0;
+                                    return (
+                                      <div key={key} className="space-y-1">
+                                        <div className="flex justify-between text-xs font-mono text-slate-400">
+                                          <span className="capitalize">{key.replace(/_/g, ' ')}</span>
+                                          <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
+                                            {isPositive ? '+' : ''}{val.toFixed(4)}
+                                          </span>
+                                        </div>
+                                        <div className="h-1.5 w-full rounded-full bg-white/[0.03]">
+                                          <div
+                                            className={`h-full rounded-full ${isPositive ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-rose-500 to-red-400'}`}
+                                            style={{ width: `${percent}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {msg.lime && (
+                              <div className="space-y-2 border-t border-white/5 pt-3">
+                                <p className="text-xs font-medium text-slate-400">LIME Local Decision Rules</p>
+                                <div className="space-y-1.5 text-xs font-mono">
+                                  {Object.entries(msg.lime).map(([rule, weight]) => {
+                                    const isPositive = weight >= 0;
+                                    return (
+                                      <div key={rule} className="flex justify-between rounded bg-white/[0.01] p-1.5 border border-white/5">
+                                        <span className="text-slate-400 text-[11px]">{rule}</span>
+                                        <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
+                                          {isPositive ? '+' : ''}{weight.toFixed(4)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {msg.fairness && (
+                              <div className="space-y-2 border-t border-white/5 pt-3">
+                                <p className="text-xs font-medium text-slate-400">Fairlearn Global Bias Audit</p>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 text-xs">
+                                  <div className="rounded border border-white/5 bg-white/[0.02] p-2">
+                                    <span className="block text-[10px] text-slate-500">Gender Parity Gap</span>
+                                    <span className="font-mono text-slate-300">{(msg.fairness.demographic_parity_gap_gender * 100).toFixed(2)}%</span>
+                                  </div>
+                                  <div className="rounded border border-white/5 bg-white/[0.02] p-2">
+                                    <span className="block text-[10px] text-slate-500">Age Parity Gap</span>
+                                    <span className="font-mono text-slate-300">{(msg.fairness.demographic_parity_gap_age * 100).toFixed(2)}%</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {msg.logs && (
                           <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-3">
