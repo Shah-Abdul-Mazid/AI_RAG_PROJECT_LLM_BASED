@@ -1,38 +1,46 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from app.core.config import settings
+import os
+from pymongo import MongoClient
+from pymongo.database import Database
+from dotenv import load_dotenv
 
-DATABASE_URL = settings.DATABASE_URL
+load_dotenv()  # Load .env file before reading environment variables
 
-# SQLite needs special args; PostgreSQL does not
-connect_args = {}
-engine_kwargs = {}
+MONGODB_URL = os.getenv("DATABASE_URL")  # Default to a placeholder if not set
 
-if DATABASE_URL.startswith("sqlite"):
-    import os
-    # sqlite:///./data/app.db or sqlite:////path/to/app.db
-    # extract path by stripping sqlite:/// prefix (allowing for varying slashes)
-    db_path = DATABASE_URL.replace("sqlite:///", "").replace("sqlite://", "")
-    db_dir = os.path.dirname(db_path)
-    if db_dir and not os.path.exists(db_dir):
-        os.makedirs(db_dir, exist_ok=True)
-    connect_args = {"check_same_thread": False}
-else:
-    # PostgreSQL / RDS: use connection pooling for production stability
-    engine_kwargs = {
-        "pool_size": 5,
-        "max_overflow": 10,
-        "pool_pre_ping": True,   # auto-reconnect if connection dropped
-        "pool_recycle": 300,     # recycle connections every 5 minutes
-    }
+# ─── Derive the database name ──────────────────────────────────────────────────
+# For  mongodb+srv://user:pass@cluster/dbname  → extract "dbname"
+# For  mongodb://localhost:27017/nexus_db      → extract "nexus_db"
+def _get_db_name(url: str) -> str:
+    path = url.split("/")[-1]
+    name = path.split("?")[0].strip()
+    return name if name else "nexus_db"
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args, **engine_kwargs)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+_client: MongoClient = None
 
+def get_client() -> MongoClient:
+    global _client
+    if _client is None:
+        _client = MongoClient(MONGODB_URL)
+    return _client
+
+def get_database() -> Database:
+    client = get_client()
+    db_name = _get_db_name(MONGODB_URL)
+    return client[db_name]
+
+# FastAPI dependency — yields a MongoDB Database instance
 def get_db():
-    db = SessionLocal()
+    db = get_database()
     try:
         yield db
     finally:
-        db.close()
+        pass  # MongoClient is persistent; no per-request teardown needed
+
+# Create indexes on startup (called from main.py)
+def init_db():
+    db = get_database()
+    db["users"].create_index("email", unique=True)
+    db["chats"].create_index("user_id")
+    db["messages"].create_index("chat_id")
+    print("[OK] MongoDB indexes ensured.")
+

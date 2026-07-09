@@ -1,10 +1,11 @@
 from datetime import timedelta
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
+from pymongo.database import Database
 from pydantic import BaseModel, EmailStr
-from sqlalchemy.orm import Session
 
 from app.core.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -36,34 +37,35 @@ class Token(BaseModel):
 
 
 @router.post("/register")
-async def register_user(payload: RegisterRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+async def register_user(payload: RegisterRequest, db: Database = Depends(get_db)):
+    # Check if email already exists
+    existing = db["users"].find_one({"email": payload.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    user = User(
+    # Insert new user document
+    doc = User.new_doc(
         email=payload.email,
         hashed_password=get_password_hash(payload.password),
         full_name=payload.full_name,
         role="user",
     )
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    result = db["users"].insert_one(doc)
+    user_id = str(result.inserted_id)
 
     return {
         "message": "User registered successfully",
-        "email": user.email,
-        "full_name": user.full_name,
-        "role": user.role,
+        "id": user_id,
+        "email": payload.email,
+        "full_name": payload.full_name,
+        "role": "user",
     }
 
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-):
+    db: Database = Depends(get_db),
+) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -78,27 +80,28 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.email == email).first()
-    if user is None:
+    doc = db["users"].find_one({"email": email})
+    if doc is None:
         raise credentials_exception
 
-    return user
+    return User(doc)
 
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
+    db: Database = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    doc = db["users"].find_one({"email": form_data.username})
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not doc or not verify_password(form_data.password, doc["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    user = User(doc)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email, "role": user.role},
