@@ -135,7 +135,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
               <button
                 type="button"
                 onClick={() => {
-                  router.push("/auth/reg");
+                  router.push("/auth/register");
                 }}
                 className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   mode === "register" ? "bg-sky-500 text-white" : "text-slate-400 hover:text-white"
