@@ -33,8 +33,8 @@ import { motion } from "framer-motion";
 
 const getApiBase = () => {
   // Always use the production backend — works from both local dev and production
-  if (typeof window === "undefined") return "https://nexusintelligence.duckdns.org";
-  return "https://nexusintelligence.duckdns.org";
+  if (typeof window === "undefined") return "https://ai-rag-project-llm-based.onrender.com";
+  return "https://ai-rag-project-llm-based.onrender.com";
 };
 
 
