@@ -49,7 +49,11 @@ export default function AuthPage() {
     } catch (error: any) {
       console.error("Auth error:", error);
       if (authMode === "login") {
-        setLoginError("Invalid credentials. Try admin@nexus.org or user@nexus.org");
+        if (error.response?.data?.detail) {
+          setLoginError(String(error.response.data.detail));
+        } else {
+          setLoginError("Login failed. Please verify your credentials or ensure the backend server is running.");
+        }
       } else {
         if (error.response?.data?.detail) {
           setLoginError(String(error.response.data.detail));

@@ -38,14 +38,15 @@ class Token(BaseModel):
 
 @router.post("/register")
 async def register_user(payload: RegisterRequest, db: Database = Depends(get_db)):
+    email = payload.email.strip().lower()
     # Check if email already exists
-    existing = db["users"].find_one({"email": payload.email})
+    existing = db["users"].find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     # Insert new user document
     doc = User.new_doc(
-        email=payload.email,
+        email=email,
         hashed_password=get_password_hash(payload.password),
         full_name=payload.full_name,
         role="user",
@@ -56,7 +57,7 @@ async def register_user(payload: RegisterRequest, db: Database = Depends(get_db)
     return {
         "message": "User registered successfully",
         "id": user_id,
-        "email": payload.email,
+        "email": email,
         "full_name": payload.full_name,
         "role": "user",
     }
@@ -80,7 +81,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    doc = db["users"].find_one({"email": email})
+    doc = db["users"].find_one({"email": email.strip().lower()})
     if doc is None:
         raise credentials_exception
 
@@ -92,15 +93,29 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Database = Depends(get_db),
 ):
-    doc = db["users"].find_one({"email": form_data.username})
-
-    if not doc or not verify_password(form_data.password, doc["hashed_password"]):
+    email = form_data.username.strip().lower()
+    print(f"[AUTH] Login attempt for: {email}")
+    
+    doc = db["users"].find_one({"email": email})
+    
+    if not doc:
+        print(f"[AUTH] Login failed: User not found for email '{email}'")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    password_verified = verify_password(form_data.password, doc["hashed_password"])
+    if not password_verified:
+        print(f"[AUTH] Login failed: Password verification failed for email '{email}'")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    print(f"[AUTH] Login successful for: {email} ({doc.get('role')})")
     user = User(doc)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
