@@ -1,4 +1,5 @@
 import os
+import certifi
 from pymongo import MongoClient
 from pymongo.database import Database
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ _client: MongoClient = None
 def get_client() -> MongoClient:
     global _client
     if _client is None:
-        _client = MongoClient(MONGODB_URL)
+        _client = MongoClient(MONGODB_URL, tlsCAFile=certifi.where())
     return _client
 
 def get_database() -> Database:
