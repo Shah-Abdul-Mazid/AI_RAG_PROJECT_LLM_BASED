@@ -19,6 +19,18 @@ users = [
         "full_name": "MGI Employee",
         "role": "user",
     },
+    {
+        "email": "admin@nexus.org",
+        "password": "Admin2026@",
+        "full_name": "Nexus Admin",
+        "role": "admin",
+    },
+    {
+        "email": "user@nexus.org",
+        "password": "User2026@",
+        "full_name": "Nexus User",
+        "role": "user",
+    },
 ]
 
 for item in users:

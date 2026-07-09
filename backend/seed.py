@@ -36,6 +36,18 @@ SEED_USERS = [
         "password": "Demo@1234",
         "role": "user",
     },
+    {
+        "full_name": "Nexus Admin",
+        "email": "admin@nexus.org",
+        "password": "Admin2026@",
+        "role": "admin",
+    },
+    {
+        "full_name": "Nexus User",
+        "email": "user@nexus.org",
+        "password": "User2026@",
+        "role": "user",
+    },
 ]
 # ──────────────────────────────────────────────────────────────────────────────
 
