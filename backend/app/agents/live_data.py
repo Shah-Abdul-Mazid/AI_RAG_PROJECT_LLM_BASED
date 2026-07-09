@@ -11,7 +11,7 @@ except ImportError:
 # Keywords to trigger live data agent
 LIVE_KEYWORDS = [
     "weather", "temperature", "forecast", "rain", "humidity", "wind",
-    "today", "now", "recent", "latest", "news", "current", "president", "stock", "price"
+    "today", "now", "recent", "latest", "news", "current", "president", "stock", "price", "who is", "pm", "prime minister"
 ]
 
 class LiveDataAgent:
